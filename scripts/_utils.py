@@ -397,7 +397,7 @@ ALLOWED_DOC_DIRS = frozenset(
 ADR_ID_RE = re.compile(r"^ADR-(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 
 #: 문서 파일명은 케밥케이스. 원본 저장소는 케밥·스네이크가 섞여 있었다.
-KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\.(md|yaml|yml|json)$")
+KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\.(md|yaml|yml|json|css)$")
 
 #: 템플릿·인덱스는 파일명 규칙에서 제외한다.
 DOC_NAME_EXEMPT = frozenset({"_TEMPLATE.md", "README.md", "MEMORY.md", "CLAUDE.md"})

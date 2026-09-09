@@ -1,0 +1,25 @@
+/* 디자인 토큰 — 정본.
+ *
+ * 화면이 있는 프로젝트만 쓴다. 근거는 docs/product/design.md 다.
+ *
+ * ★ 색·치수 값이 정의되는 곳은 여기 하나여야 한다.
+ *   constraints.yaml 의 DESIGN-002 가 이 파일 밖의 색상 리터럴을 막는다.
+ *   이 파일 자체는 exclude_paths 로 검사에서 제외한다.
+ *
+ * UI 라이브러리를 쓴다면 이 값을 라이브러리 테마에 주입한다. 예) MUI:
+ *   const tokens = getComputedStyle(document.documentElement)
+ *   createTheme({ palette: { primary: { main: tokens.getPropertyValue('--color-primary') } } })
+ *
+ * 값이 두 곳에 생기면 이 파일은 의미가 없다.
+ */
+
+:root {
+  /* 색 — 역할로 이름 짓는다. --color-blue 가 아니라 --color-primary */
+  /* TODO */
+
+  /* 타이포 — 한국어 UI 면 한글 글리프가 있는 서체인지 확인할 것 */
+  /* TODO */
+
+  /* 간격 — 스케일을 정하고 그 배수만 쓴다 */
+  /* TODO */
+}

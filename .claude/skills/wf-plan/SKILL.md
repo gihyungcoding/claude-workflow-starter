@@ -75,6 +75,23 @@ cat docs/decisions/README.md
 | 검사되는 제약 | `constraints.yaml` | Phase 4가 실제로 확인할 것 |
 | 관련 결정 | `decisions/README.md` | 이미 결론 난 논의를 반복하지 않는다 |
 
+**route 가 Frontend 이면 디자인 정본도 읽는다.** 없으면 조용히 건너뛴다 (백엔드 전용
+프로젝트에는 이 파일들이 없는 것이 정상이다).
+
+```bash
+cat docs/product/design.md docs/product/design-tokens.css 2>/dev/null
+```
+
+| 무엇 | 어디서 | 설계에 미치는 영향 |
+|---|---|---|
+| 의미 매핑 | `design.md` §5 | 같은 뜻에 같은 색·같은 말을 쓴다 |
+| 토큰 | `design-tokens.css` | 새 색·치수를 만들지 않는다 |
+| 하지 않는 것 | `design.md` §6 | 기본값으로 흘러가지 않게 |
+| 와이어프레임 | feature 문서 §5 | 화면 구조와 상태 목록 |
+
+`target_files` 에 스타일을 새로 만드는 파일이 있으면, **그 값이 토큰에서 오는지**를
+PLAN 의 `unresolved` 에 적는다. Phase 4 의 `DESIGN-*` 가 그것을 검사한다.
+
 제목만 보고 관련 있어 보이는 ADR은 본문을 읽는다. "왜 이 라이브러리를 쓰는가"가
 설계 선택을 바꾼다.
 
