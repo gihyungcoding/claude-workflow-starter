@@ -14,13 +14,15 @@ description: >-
 
 1. 승인된 시나리오 **하나당 테스트 함수 하나** — 개수가 정확히 일치해야 한다
 2. 테스트를 실행해 **실제로 실패하는 것을 확인**한다 (실행 출력을 남긴다)
-3. 실패 사유가 "구현이 없어서"인지 확인한다 — 문법 오류나 import 실패는 Red가 아니다
+3. 실패 사유가 **"구현이 없어서"** 인지 확인한다 — 테스트 코드 자체의 결함은 Red 가 아니다
+   (정적 컴파일 언어는 Step 3의 「컴파일 언어」 절을 먼저 읽는다)
 4. 기존 테스트 파일의 관례를 따른다 (Phase 1의 `codebase_analysis.existing_tests`)
 5. HITL#2 승인을 `AskUserQuestion` 으로 받는다
 
 ## FORBIDDEN
 
-1. ❌ **구현 코드 작성** — 이 Phase는 프로덕션 코드를 한 줄도 만들지 않는다
+1. ❌ **구현 코드 작성** — 이 Phase는 로직을 한 줄도 만들지 않는다.
+   컴파일 언어의 스켈레톤은 예외이나 허용 범위가 정해져 있다 (Step 3)
 2. ❌ 테스트를 통과시키기 위해 단언을 약화시키기
 3. ❌ 시나리오에 없는 테스트 추가 / 시나리오에 있는데 테스트 누락
 4. ❌ 실행하지 않고 "실패할 것"이라고 보고하기
@@ -85,20 +87,61 @@ def test_sc01_담당_매장이_검색된다():
 
 ### Step 3 — 실행해서 실패 확인
 
+**`CLAUDE.md` 「이 프로젝트에 대해」의 테스트 명령을 쓴다.**
+
 ```bash
-pytest tests/api/test_store_search.py -v
+<CLAUDE.md 의 테스트 명령>    # 예: pytest -v / ./gradlew test / npm test
 ```
 
-출력을 그대로 기록한다. 확인할 것:
+출력을 그대로 기록한다. 판정 기준은 **실패 유형이 아니라 원인**이다.
+
+| | |
+|---|---|
+| **Red 다** | 단언이 실패한다 — 로직이 없거나 틀렸다 |
+| **Red 가 아니다** | 테스트 코드 자체가 잘못됐다 (오타, 잘못된 임포트, 잘못된 단언) |
+
+확인할 것:
 
 | 확인 | 왜 |
 |---|---|
 | 모든 새 테스트가 실패 | 하나라도 통과하면 이미 구현됐거나 단언이 약하다 |
-| 실패 사유가 `NameError`/`AttributeError`/`AssertionError` | 구현이 없어서 실패한 것 |
-| 실패 사유가 `SyntaxError`/`ImportError`(테스트 파일 자체) | **Red가 아니다.** 테스트 코드가 잘못됐다 |
 | 기존 테스트는 계속 통과 | 새 테스트가 기존 것을 깨뜨리지 않았는지 |
 
 통과한 테스트가 있으면 단언을 강화하거나, 그 기능이 이미 있는지 확인한다.
+
+#### 컴파일 언어 (Java · Kotlin · Go · Rust · C# · TypeScript)
+
+동적 언어에서는 `NameError` 가 Red 다 — 호출 대상이 없어도 테스트가 **실행은 된다.**
+컴파일 언어에서는 그렇지 않다. 클래스나 메서드가 없으면 **테스트가 컴파일조차 되지
+않으므로**, 실행 결과 자체가 존재하지 않는다. "구현이 없어서 실패" 를 관찰할 수 없다.
+
+따라서 **컴파일용 스켈레톤이 선행돼야 한다.** 허용 범위는 좁다.
+
+| | |
+|---|---|
+| **허용** | 클래스·인터페이스 선언, 메서드 시그니처, 필드, enum 상수, 구조적 애노테이션 |
+| **허용** | 메서드 본문은 `throw new UnsupportedOperationException()` **한 줄만** |
+| **금지** | 조건 분기, 계산, 쿼리, 실제 값 반환 — **빈 리스트·null 반환도 금지** |
+
+빈 리스트 반환이 금지인 이유: "결과가 비어 있다" 를 검증하는 시나리오가 **우연히
+통과**한다. 그것은 구현이 아니라 사고다.
+
+**스켈레톤이 순수한지 검증하는 방법** — 모든 실패가 `UnsupportedOperationException`
+이면 로직이 한 줄도 없다는 뜻이다.
+
+```bash
+./gradlew test 2>&1 | grep -c "UnsupportedOperationException"   # == 실패 개수여야 한다
+```
+
+숫자가 실패 개수보다 적으면 어딘가에 로직이 들어갔다. 그 테스트를 찾아 스켈레톤으로
+되돌린다.
+
+**애노테이션이 곧 구현인 경우는 아예 넣지 않는다.** 스키마 제약(`@NotNull`,
+`@Column(length=200)`, `@Check`)은 선언이 아니라 동작이다 — 넣는 순간 그 제약을
+검증하는 시나리오가 통과해버린다. Phase 3 에서 추가한다.
+
+컴파일 스켈레톤은 Red 커밋에 함께 담는다. `TEST_<ID>.json` 의
+`compile_skeleton` 에 어느 파일에 무엇을 넣었는지 적는다.
 
 ### Step 4 — 인벤토리 검증
 
@@ -139,6 +182,12 @@ jq -r '.scenarios[].id' workflow_design/05_scenario/SCENARIO_TASK-001.json
     "framework": "pytest",
     "mock_strategy": "리포지토리 계층 스텁, DB 접근 없음"
   },
+  //  컴파일 언어만 — 무엇을 컴파일 통과용으로 넣었는지
+  //  "compile_skeleton": {
+  //    "files": ["src/main/java/.../PerformanceService.java"],
+  //    "contents": "시그니처 4개, 본문은 전부 UnsupportedOperationException",
+  //    "purity_check": "실패 11건 == UnsupportedOperationException 11건"
+  //  },
   "human_review": { "approved": false }
 }
 ```
