@@ -33,9 +33,11 @@ description: >-
 - `completion_report.approved_by_human == true`
 - `CP-5.2`, `CP-5.3` 저장
 - **Phase 1~5의 모든 산출물과 체크포인트가 커밋됨**
+- **`tasks.json` 의 `status` 가 `done`** — memory-bank 만 DONE 이면 태스크가 닫힌 게 아니다
 
 ```bash
 python scripts/verify_workflow_artifacts.py --task-id TASK-001    # exit 0
+python scripts/rebuild_memory_bank_index.py --check               # exit 0
 ```
 
 ---
@@ -224,12 +226,24 @@ Phase 5 — TASK-001 회고
 6. `python scripts/verify_workflow_artifacts.py --task-id TASK-001` → exit 0 확인
 7. 커밋
 
+**5번이 `tasks.json` 의 `status` 도 함께 고친다.** 상태가 두 곳에 있기 때문이다 —
+`activeContext.md`(시작된 뒤에만 존재)와 `tasks.json`(시작 전부터 존재). 예전에는
+`activeContext.md` 만 DONE 이 되고 `tasks.json` 은 `todo` 로 남았는데,
+`/wf-start`(인자 없음)와 `depends_on` 판정은 `tasks.json` 을 읽는다. 그 결과
+**완료된 태스크가 다시 후보로 제시되고 후속 태스크의 선행 의존이 풀리지 않았다.**
+
+출력에 `tasks.json status 갱신 — TASK-001: todo → done` 이 보이는지 확인한다.
+안 보이면 이미 맞거나, `tasks.json` 의 `id` 와 memory-bank 폴더명이 다른 것이다.
+
 ```bash
-git add workflow_design/08_reflect memory-bank/
+git add workflow_design/ memory-bank/
 git commit -m "chore(workflow): TASK-001 회고 완료 및 태스크 종료
 
 Refs: TASK-001"
 ```
+
+`git add` 에 `workflow_design/08_reflect` 가 아니라 `workflow_design/` 을 쓰는 이유는
+`02_tasks/tasks.json` 도 이 커밋에 들어가야 하기 때문이다.
 
 **태스크 폴더를 지우지 않는다.** 과거 결정 기록은 비슷한 작업에서 같은 논의를 반복하지 않게
 해주는 자산이다.

@@ -57,11 +57,21 @@ TASK-004  매장 검색 권한 필터
     - CP-3.2, CP-3.4 미저장
 ```
 
-## `index.md` 가 최신이 아닐 때
+## 파생 상태가 어긋났을 때
 
 `wf_status.py` 는 `activeContext.md` 파일들을 직접 읽으므로 항상 최신이다.
-`memory-bank/index.md` 와 다르면 index를 재생성한다.
+`memory-bank/index.md` 와 `tasks.json` 의 `status` 는 파생물이라 어긋날 수 있다.
 
 ```bash
-python scripts/rebuild_memory_bank_index.py
+python scripts/rebuild_memory_bank_index.py --check   # 어긋난 곳만 보고
+python scripts/rebuild_memory_bank_index.py           # 둘 다 맞춘다
+```
+
+**`tasks.json` 불일치는 그냥 넘기지 않는다.** `/wf-start`(인자 없음)와 `depends_on`
+판정이 `tasks.json` 을 읽으므로, 완료된 태스크가 다시 후보로 뜨거나 후속 태스크가
+영원히 차단된 것처럼 보인다. 현황 보고에 이렇게 덧붙인다:
+
+```
+⚠ tasks.json 이 memory-bank 와 다릅니다 (TASK-001: todo ≠ done)
+  python scripts/rebuild_memory_bank_index.py 로 맞추고 커밋하세요.
 ```

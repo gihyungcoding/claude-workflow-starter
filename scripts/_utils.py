@@ -287,6 +287,59 @@ def list_tasks() -> list[dict]:
     return tasks
 
 
+#: memory-bank 의 상태 → tasks.json 의 status 대응.
+#: 두 곳에 상태가 있는 이유: tasks.json 은 태스크가 시작되기 전부터 존재하고
+#: (요구사항 문서의 §1-2 표에서 생성), memory-bank 는 시작된 뒤에만 있다.
+#: 시작된 태스크의 진실은 memory-bank 쪽이므로 그 방향으로만 동기화한다.
+MEMORY_TO_TASKS_STATUS = {
+    "ACTIVE": "in_progress",
+    "BLOCKED": "blocked",
+    "DONE": "done",
+}
+
+
+def tasks_json_path() -> Path:
+    return workflow_design_root() / "02_tasks" / "tasks.json"
+
+
+def sync_tasks_json_status() -> tuple[list[str], str]:
+    """memory-bank 의 태스크 상태를 tasks.json 에 반영한다.
+
+    왜 필요한가: Phase 5 가 activeContext.md 를 DONE 으로 바꿔도 tasks.json 은 todo 로
+    남아 있었다. 그런데 /wf-start(인자 없음)와 depends_on 판정은 tasks.json 을 읽는다.
+    그 결과 완료된 태스크가 다시 후보로 제시되고 선행 의존이 영원히 풀리지 않는다.
+
+    반환: (바뀐 내용 설명 목록, 에러 메시지). 에러가 없으면 빈 문자열.
+    """
+    path = tasks_json_path()
+    data, err = load_json(path)
+    if err:
+        # tasks.json 이 없는 것은 정상이다 — 아직 태스크를 추출하지 않았을 수 있다
+        return [], "" if not path.is_file() else err
+    if not isinstance(data, list):
+        return [], f"tasks.json 최상위가 배열이 아니다: {path}"
+
+    by_id = {t["task_id"]: t for t in list_tasks() if t.get("task_id")}
+    changes: list[str] = []
+    for task in data:
+        if not isinstance(task, dict):
+            continue
+        tid = task.get("id")
+        state = by_id.get(tid)
+        if state is None:
+            continue  # 아직 시작하지 않은 태스크 — tasks.json 이 진실이다
+        want = MEMORY_TO_TASKS_STATUS.get(state["status"])
+        if want and task.get("status") != want:
+            changes.append(f"{tid}: {task.get('status')} → {want}")
+            task["status"] = want
+
+    if changes:
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+    return changes, ""
+
+
 def saved_checkpoints(task_id: str) -> list[str]:
     """저장된 체크포인트 파일명 목록 (phase 디렉터리 순)."""
     base = task_dir(task_id) / "checkpoints"

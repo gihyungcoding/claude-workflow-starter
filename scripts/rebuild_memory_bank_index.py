@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""memory-bank/index.md 를 태스크 폴더에서 결정론적으로 재생성한다.
+"""memory-bank 의 파생 상태를 재생성한다 — index.md 와 tasks.json 의 status.
 
 왜 이 스크립트만 index.md 를 쓰는가
 ----------------------------------
@@ -8,14 +8,25 @@
 쌓였고, 활성 19건 중 제목이 비어 있는 것이 다수였다. 생성 경로가 하나면 이런 drift 가 생기지
 않는다. index.md 를 직접 편집하면 다음 실행 때 사라진다.
 
+tasks.json 의 status 도 여기서 맞춘다
+------------------------------------
+상태가 두 곳에 있다 — memory-bank/<ID>/activeContext.md 와 tasks.json. 전자는 태스크가
+시작된 뒤에만 있고, 후자는 시작 전부터 있다(요구사항 문서 §1-2 표에서 생성). 시작된
+태스크의 진실은 memory-bank 쪽이다.
+
+Phase 5 가 activeContext.md 를 DONE 으로 바꿔도 tasks.json 은 todo 로 남는 문제가 있었다.
+/wf-start(인자 없음)와 depends_on 판정은 tasks.json 을 읽으므로, 완료된 태스크가 다시
+후보로 제시되고 선행 의존이 풀리지 않았다. 이 스크립트가 그 반영을 맡는다 —
+wf-reflect Step 7 이 이미 호출하고 있으므로 새로 잊을 단계가 늘지 않는다.
+
 사용
 ----
     python scripts/rebuild_memory_bank_index.py
-    python scripts/rebuild_memory_bank_index.py --check   # 재생성 없이 최신인지만 확인
+    python scripts/rebuild_memory_bank_index.py --check   # 쓰지 않고 어긋난 곳만 보고
 
 되돌리는 법
 ----------
-이 스크립트는 index.md 하나만 덮어쓴다. 잘못되면 git checkout 으로 되돌린다.
+index.md 와 tasks.json 의 status 필드만 쓴다. 잘못되면 git checkout 으로 되돌린다.
 태스크 폴더는 읽기만 한다.
 """
 
@@ -25,7 +36,15 @@ import argparse
 import sys
 from datetime import date
 
-from _utils import PHASE_NAMES, list_tasks, memory_bank_root
+from _utils import (
+    MEMORY_TO_TASKS_STATUS,
+    PHASE_NAMES,
+    list_tasks,
+    load_json,
+    memory_bank_root,
+    sync_tasks_json_status,
+    tasks_json_path,
+)
 
 HEADER_NOTE = (
     "> 이 파일은 `scripts/rebuild_memory_bank_index.py` 가 생성합니다. "
@@ -115,6 +134,25 @@ def build(tasks: list[dict]) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
+def tasks_json_drift(tasks: list[dict]) -> list[str]:
+    """tasks.json 의 status 가 memory-bank 와 어긋난 곳. --check 전용(쓰지 않는다)."""
+    data, err = load_json(tasks_json_path())
+    if err or not isinstance(data, list):
+        return []
+    by_id = {t["task_id"]: t for t in tasks if t.get("task_id")}
+    out = []
+    for task in data:
+        if not isinstance(task, dict):
+            continue
+        state = by_id.get(task.get("id"))
+        if state is None:
+            continue
+        want = MEMORY_TO_TASKS_STATUS.get(state["status"])
+        if want and task.get("status") != want:
+            out.append(f"{task.get('id')}: tasks.json={task.get('status')!r} memory-bank={want!r}")
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
@@ -141,10 +179,15 @@ def main() -> int:
                 line for line in text.splitlines() if not line.startswith("마지막 재생성:")
             )
 
-        if strip_date(current) == strip_date(content):
-            print("index.md 는 최신입니다.")
+        drift = tasks_json_drift(tasks)
+        if strip_date(current) == strip_date(content) and not drift:
+            print("index.md · tasks.json 모두 최신입니다.")
             return 0
-        print("index.md 가 태스크 폴더와 다릅니다. 재생성이 필요합니다.", file=sys.stderr)
+        if strip_date(current) != strip_date(content):
+            print("index.md 가 태스크 폴더와 다릅니다.", file=sys.stderr)
+        for line in drift:
+            print(f"tasks.json status 불일치 — {line}", file=sys.stderr)
+        print("재생성이 필요합니다: python scripts/rebuild_memory_bank_index.py", file=sys.stderr)
         return 1
 
     index_path.write_text(content, encoding="utf-8")
@@ -152,6 +195,13 @@ def main() -> int:
     blocked = sum(1 for t in tasks if t["status"] == "BLOCKED")
     done = sum(1 for t in tasks if t["status"] == "DONE")
     print(f"index.md 재생성 — 활성 {active} · 차단 {blocked} · 완료 {done} (총 {len(tasks)})")
+
+    changes, err = sync_tasks_json_status()
+    if err:
+        print(f"tasks.json 동기화 실패: {err}", file=sys.stderr)
+        return 1
+    for line in changes:
+        print(f"tasks.json status 갱신 — {line}")
     return 0
 
 
