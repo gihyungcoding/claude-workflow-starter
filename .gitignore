@@ -20,3 +20,12 @@ venv/
 
 # OS
 .DS_Store
+
+# 에디터 임시 파일
+# 스타터에 .SKILL.md.swp 가 커밋된 채 배포된 적이 있다. clone 하는 모든 프로젝트가
+# 그것을 물려받으므로 여기서 막는다.
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
