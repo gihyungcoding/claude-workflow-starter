@@ -47,7 +47,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _utils import constraints_path, load_constraints, repo_root  # noqa: E402
 
-VALID_TYPES = {"forbidden_import", "forbidden_path", "required_path"}
+#: forbidden_pattern 은 forbidden_import 와 동작이 같다. 이름만 다른 이유는,
+#: 같은 메커니즘(줄 단위 정규식)을 import 가 아닌 것 — 색상 리터럴, 매직 치수 —
+#: 에 쓸 때 규칙을 읽는 사람이 헷갈리지 않게 하기 위해서다.
+VALID_TYPES = {
+    "forbidden_import",
+    "forbidden_pattern",
+    "forbidden_path",
+    "required_path",
+}
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build"}
 
 
@@ -103,6 +111,16 @@ def check_one(constraint: dict, root: Path, limit: set[str] | None) -> tuple[lis
         ], 0
 
     files = iter_files(patterns, root)
+
+    # 정본 파일은 규칙에서 빼야 한다 — 디자인 토큰 파일은 색상 리터럴로 가득한 것이
+    # 정상이고, 그것을 위반으로 세면 규칙이 성립하지 않는다.
+    excludes = detect.get("exclude_paths") or []
+    if isinstance(excludes, str):
+        excludes = [excludes]
+    if excludes:
+        excluded = {f.resolve() for f in iter_files(excludes, root)}
+        files = [f for f in files if f.resolve() not in excluded]
+
     if limit is not None:
         files = [f for f in files if str(f.relative_to(root)) in limit]
 
@@ -122,14 +140,14 @@ def check_one(constraint: dict, root: Path, limit: set[str] | None) -> tuple[lis
             for f in files
         ], len(files)
 
-    # forbidden_import
+    # forbidden_import / forbidden_pattern — 줄 단위 정규식
     raw = detect.get("pattern")
     if not raw:
         return [
             {
                 "file": str(constraints_path().relative_to(root)),
                 "line": 0,
-                "detail": "forbidden_import 인데 detect.pattern 이 없다",
+                "detail": f"{kind} 인데 detect.pattern 이 없다",
             }
         ], 0
     try:
