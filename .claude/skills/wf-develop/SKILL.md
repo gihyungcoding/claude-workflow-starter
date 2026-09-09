@@ -32,7 +32,8 @@ Red 테스트를 통과시킨다. **최소 구현 → 확인 → 리팩토링** 
 - `test_status == "green"`, `failed == 0`
 - `passed >= red_scenarios.length`
 - 전체 테스트 스위트 통과 (기존 테스트 포함)
-- 린트 error 0
+- 린트 error 0 — **린트 도구가 없으면 `"errors": null` + `skipped_reason`.**
+  `"command": "N/A", "errors": 0` 으로 적으면 이 게이트가 무력해진다
 - `CP-3.2`, `CP-3.4` 저장 및 커밋
 
 ---
@@ -96,13 +97,27 @@ pytest
 
 ### Step 5 — 린트·포맷
 
+**`CLAUDE.md` 「이 프로젝트에 대해」의 린트 명령을 쓴다.** 아래는 형식 예시다.
+
 ```bash
-ruff check .        # 프로젝트 린터로 대체
-ruff format --check .
+<CLAUDE.md 의 린트 명령>     # 예: ruff check . / ./gradlew spotlessCheck / npm run lint
 ```
 
 **변경한 파일에서 error 0** 이어야 한다. 기존 파일의 경고는 이 태스크 범위가 아니다 —
 고치고 싶으면 별도 태스크로 만든다.
+
+### `CLAUDE.md` 의 린트 항목이 `TODO` 이면
+
+**`errors: 0` 으로 적고 넘어가지 않는다.** EXIT GATE 의 "린트 error 0" 이 그 순간
+무의미해지고, 이후 모든 태스크에서 같은 방식으로 우회된다.
+
+| 상황 | 처리 |
+|---|---|
+| 도구를 지금 도입할 수 있다 | 사용자에게 알리고 도입한다. `CLAUDE.md` 의 린트 줄도 함께 채운다 |
+| 이 프로젝트에 도입하지 않기로 했다 | `"errors": null, "skipped_reason": "<사유>"` 로 적는다 |
+
+첫 태스크에서 도입하는 편이 거의 항상 낫다. 코드가 적을 때 포매터를 넣으면 변경이 작고,
+나중에 넣으면 전체 파일이 한 번에 재포맷되어 리뷰가 불가능해진다.
 
 ### Step 6 — DEV JSON 저장
 
@@ -123,6 +138,9 @@ ruff format --check .
     "target_tests_passed": 6
   },
   "lint": { "command": "ruff check .", "errors": 0, "warnings": 0 },
+  //  도구가 없으면 — 0 이 아니라 null 이다
+  //  "lint": { "command": null, "errors": null,
+  //            "skipped_reason": "CLAUDE.md 의 린트 항목이 TODO" },
   "refactoring": [
     { "what": "매장 ID 목록 조회를 리포지토리로 이동",
       "why": "API 계층에 쿼리 로직이 있었음" }

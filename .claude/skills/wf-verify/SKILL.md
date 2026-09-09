@@ -15,18 +15,22 @@ description: >-
 1. 모든 판정에 **실행한 명령과 그 출력**을 근거로 붙인다
 2. `acceptance_criteria` 를 하나씩 대조한다 — 통째로 "충족"이라고 하지 않는다
 3. Frontend 태스크면 **화면을 실제로 띄워 상태별로 확인**한다 (Step 2.5)
-4. **`check_architecture.py` 를 실행한다.** `severity: error` 위반은 `status: FAIL`
-5. `code-reviewer` 서브에이전트로 변경 코드를 리뷰한다
-6. HITL#3 승인을 `AskUserQuestion` 으로 받는다
-7. **승인 시 `verified_commit` 에 현재 HEAD 를 기록한다** — 무엇을 승인했는지의 증거
+4. **`check_architecture.py` 를 실행한다.** `severity: error` 위반은 `status: FAIL`.
+   **`no_target` 이 비어 있지 않으면 그 제약은 통과한 것이 아니다** — 검사되지 않은 것이다
+5. **`architecture.md` 의 산문 규칙과 `constraints.yaml` 을 대조한다** (Step 3.5)
+6. `code-reviewer` 서브에이전트로 변경 코드를 리뷰한다
+7. HITL#3 승인을 `AskUserQuestion` 으로 받는다
+8. **승인 시 `verified_commit` 에 현재 HEAD 를 기록한다** — 무엇을 승인했는지의 증거
 
 ## FORBIDDEN
 
 1. ❌ **실행하지 않은 명령의 결과를 적기** — 이 Phase의 존재 이유가 무너진다
-2. ❌ 실패를 경고로 낮춰 적기
-3. ❌ `status: FAIL` 인 채로 Phase 5 진입
-4. ❌ 코드 수정 — 문제를 찾으면 Phase 3으로 되돌린다
-5. ❌ **화면을 띄워보지 않고 UI 완료 조건을 PASS 로 적기** — 기본 상태만 보고 끝내는 것도 포함
+2. ❌ **검사하지 않은 것을 "0건" 으로 적기.** 도구가 없어 못 돌렸으면 `null` 과 사유를
+   쓴다. `{"command": "N/A", "errors": 0}` 처럼 쓰면 게이트가 그것을 통과로 읽는다
+3. ❌ 실패를 경고로 낮춰 적기
+4. ❌ `status: FAIL` 인 채로 Phase 5 진입
+5. ❌ 코드 수정 — 문제를 찾으면 Phase 3으로 되돌린다
+6. ❌ **화면을 띄워보지 않고 UI 완료 조건을 PASS 로 적기** — 기본 상태만 보고 끝내는 것도 포함
 
 ## EXIT GATE
 
@@ -34,6 +38,8 @@ description: >-
 - `status ∈ {PASS, WARN}` — **FAIL이면 통과 불가**
 - 모든 `acceptance_criteria` 에 판정과 증거가 있음
 - `architecture.error_count == 0` (제약이 정의된 경우)
+- **`architecture.no_target` 이 빈 배열** — 검사 대상이 0개인 제약이 남아 있으면 통과 불가
+- **`evidence.lint.exit_code` 가 실제 숫자** — 린트 도구가 없으면 `null` + `skipped_reason`
 - `human_review.decision ∈ {APPROVE, EXCEPTION_APPROVE}`
 - `human_review.verified_commit` 기록됨
 - `CP-4.2`, `CP-4.3` 저장 및 커밋
@@ -46,14 +52,23 @@ description: >-
 
 명령을 실제로 돌리고 출력을 보관한다.
 
+**테스트·린트·빌드 명령은 `CLAUDE.md` 「이 프로젝트에 대해」에 선언된 것을 쓴다.**
+아래는 형식 예시일 뿐이므로 그대로 복사하지 않는다 — 프로젝트가 Python 이 아닐 수 있다.
+
 ```bash
-pytest -v                              # 전체 테스트
-pytest --cov=src --cov-report=term     # 커버리지 (설정돼 있으면)
-ruff check .                           # 린트
-git diff --stat main...HEAD            # 변경 규모
+<CLAUDE.md 의 테스트 명령>     # 예: pytest -v / ./gradlew test / npm test
+<CLAUDE.md 의 린트 명령>       # 예: ruff check . / ./gradlew spotlessCheck
+BASE="$(git config workflow.baseBranch || echo develop)"
+git diff --stat "$BASE...HEAD"        # 변경 규모
 ```
 
 각 명령의 **exit code와 요약 출력**을 기록한다. "통과했다"가 아니라 "18 passed in 2.3s"를 적는다.
+
+**`CLAUDE.md` 에 명령이 `TODO` 이거나 실행되지 않으면 그대로 진행하지 않는다.**
+없는 것을 `"command": "N/A", "errors": 0` 으로 적으면 EXIT GATE 가 그것을 통과로 읽는다.
+`0` 은 "검사했고 없었다" 는 뜻이다. 검사하지 않았으면 `null` 이다.
+
+→ `references/evidence-integrity.md` §1
 
 ### Step 2 — acceptance_criteria 대조
 
@@ -72,44 +87,16 @@ git diff --stat main...HEAD            # 변경 규모
 `route` 가 `Frontend` 가 아니면 건너뛴다.
 
 시안이 없는 프로젝트에서는 **이것이 유일한 UI 검증 수단**이다. 시안이 있어도
-그림과 비교하는 것보다 실제로 그 상태가 되는지 보는 편이 확실하다.
+그림과 비교하는 것보다 **실제로 그 상태가 되는지 보는 편**이 확실하다.
+feature 문서 §5 의 상태 목록대로 하나씩 확인한다 — 기본 / 빈 목록 / 로딩 / 오류 / 권한 없음.
 
-feature 문서 §5의 **상태 목록대로** 하나씩 확인한다.
+앱을 띄워 각 상태를 **실제로 만들어서** 본다. 기본 상태만 보고 끝내지 않는다.
+결과를 `screens` 에 기록하고 스크린샷은 HITL 리포트 Artifact 에 첨부한다.
 
-```bash
-jq -r '.source_refs.source_file' workflow_design/04_plan/PLAN_TASK-001.json
-```
+**앱을 띄울 수 없으면** 그 사실을 적고 `WARN` 으로 둔다. 확인하지 않은 것을 PASS 로 쓰지
+않는다. 명세에 있는 상태가 실제로 안 나오면 `status: FAIL` 이다 — 완료 조건 미충족이다.
 
-앱을 띄운다 — 프로젝트에 맞는 방법을 쓴다 (`run` 스킬이 대부분 처리한다).
-웹이면 브라우저 도구로, iOS 앱이면 시뮬레이터로 조작한다.
-
-각 상태를 **실제로 만들어서** 본다. 기본 상태만 보고 끝내지 않는다.
-
-| 상태 | 어떻게 만드나 |
-|---|---|
-| 기본 | 데이터가 있는 상태로 접속 |
-| 빈 목록 | 데이터를 비우거나 검색어를 없는 값으로 |
-| 로딩 | 느린 응답을 흉내내거나 로딩 순간 포착 |
-| 오류 | 서버를 끄거나 잘못된 요청 |
-| 권한 없음 | 권한 없는 계정으로 |
-
-확인 결과를 `screens` 에 기록한다. 스크린샷은 HITL 리포트 Artifact 에 첨부한다.
-
-```jsonc
-"screens": [
-  { "name": "할 일 목록", "state": "기본", "verdict": "PASS",
-    "evidence": "카드 3건, 제목·마감일·체크박스 모두 표시" },
-  { "name": "할 일 목록", "state": "빈 목록", "verdict": "PASS",
-    "evidence": "\"아직 할 일이 없습니다\" + [새로 만들기] 확인" },
-  { "name": "할 일 목록", "state": "오류", "verdict": "WARN",
-    "evidence": "서버 중단 시 빈 화면. 명세에는 [다시 시도] 버튼이 있어야 함" }
-]
-```
-
-**앱을 띄울 수 없으면** (환경 미비, 빌드 실패, 외부 의존) 그 사실을 적고 `WARN` 으로 둔다.
-확인하지 않은 것을 PASS 로 쓰지 않는다.
-
-명세에 있는 상태가 실제로 안 나오면 `status: FAIL` 이다 — 완료 조건 미충족이다.
+→ 상태를 만드는 방법과 기록 형식은 `references/screen-verification.md`
 
 ### Step 3 — 아키텍처 제약 검증
 
@@ -124,7 +111,13 @@ Plan의 `architecture_refs.constraints_applied` 에 적힌 제약이 특히 관�
 |---|---|
 | `severity: error` 위반 | **`status: FAIL`** — Phase 3으로 되돌린다 |
 | `severity: warn` 위반 | `status: WARN` 후보. 사용자에게 보여준다 |
+| **`no_target` 에 제약 ID 가 있음** | **`status: FAIL`** — glob 이 실제 경로와 어긋났다 |
 | 제약 파일 없음 | 건너뛴다 (아직 정의하지 않은 것이지 위반이 아니다) |
+
+`no_target` 이 왜 FAIL 인가: 그 제약은 **아무 파일도 검사하지 않았다.** 출력에는
+"위반 0건" 으로 보이지만 규칙이 죽어 있는 것이다. `files_scanned` 를 함께 보고한다.
+
+→ 원인별 대처는 `references/evidence-integrity.md` §2
 
 **위반을 발견하면 코드를 고치지 않는다.** Phase 4는 판정만 한다.
 제약 자체가 잘못됐다고 판단되면 그 근거(ADR)를 확인하고 사용자에게 알린다:
@@ -140,6 +133,23 @@ ARCH-001 위반 — src/api/store_search.py:12
   1. 서비스를 거치도록 구현을 고친다 (Phase 3으로 롤백)
   2. 제약이 더 이상 맞지 않다면 새 ADR로 결정을 바꾸고 constraints.yaml 을 고친다
 ```
+
+### Step 3.5 — 산문 규칙 ↔ 기계 규칙 대조
+
+`constraints.yaml` 은 `architecture.md` 의 부분집합이다. **어느 산문 규칙이 아직 기계
+검사로 옮겨지지 않았는지 세지 않으면, 지켜지지 않은 규칙이 "위반 0건" 뒤에 숨는다.**
+
+`architecture.md` §2 계층 표의 **「하지 않는 것」 열**을 한 항목씩 읽고, 대응하는 제약이
+`constraints.yaml` 에 있는지 대조해 `architecture.prose_coverage` 에 남긴다.
+상태는 셋뿐이다 — `✓` / `⚠ 미인코딩` / `검사 불가`.
+
+목표는 100% 가 아니라 **갭이 보이게 하는 것**이다. `⚠ 미인코딩` 은 Phase 5 의
+`rule_proposals` 로 넘긴다 — 검증 중에 검증 규칙을 바꾸지 않는다.
+
+**예외 하나** — 그 규칙의 위반이 이번 변경 코드에 실제로 있으면 `status: FAIL` 이다.
+제약이 없어서 못 잡은 것이지 지켜진 것이 아니다.
+
+→ 대조 방법과 예시는 `references/evidence-integrity.md` §3
 
 ### Step 4 — 회귀 확인
 
@@ -195,7 +205,10 @@ TASK-001 의 변경 코드를 리뷰해주세요.
                "summary": "18 passed in 2.31s" },
     "lint":  { "command": "ruff check .", "exit_code": 0,
                "summary": "All checks passed" },
-    "diff":  { "command": "git diff --stat main...HEAD",
+    //  린트 도구가 없으면 — errors: 0 이 아니라 null 과 사유를 쓴다
+    //  "lint": { "command": null, "exit_code": null,
+    //            "skipped_reason": "린트 도구 미도입 — CLAUDE.md 의 린트 항목이 TODO" },
+    "diff":  { "command": "git diff --stat develop...HEAD",
                "summary": "3 files changed, 42 insertions(+), 4 deletions(-)" }
   },
 
@@ -209,12 +222,17 @@ TASK-001 의 변경 코드를 리뷰해주세요.
   "screens": [ /* Frontend 태스크만 — Step 2.5 */ ],
 
   "architecture": {
-    "command": "python3 scripts/check_architecture.py",
+    "command": "python3 scripts/check_architecture.py --json",
     "error_count": 0,
     "warn_count": 1,
+    "no_target": [],                   // 비어 있지 않으면 EXIT GATE 불통과
+    "files_scanned": 11,               // 0 이면 아무것도 검사하지 않은 것이다
     "violations": [
       { "id": "ARCH-003", "severity": "warn",
         "detail": "tests/api/ 에 해당 파일 없음" }
+    ],
+    "prose_coverage": [                // Step 3.5 — architecture.md 「하지 않는 것」 대조
+      { "rule": "Service: SQL 직접 작성", "constraint": null, "state": "미인코딩" }
     ]
   },
 
