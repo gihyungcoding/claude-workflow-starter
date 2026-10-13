@@ -136,12 +136,32 @@ KPT 는 `REFLECT_<ID>.json` 에 들어가므로 따로 저장하지 않는다.
   { "target": "docs/workflow/task-schema.md",
     "section": "§1 WRU 필수 조건",
     "change": "5번 항목에 '측정 명령을 명시할 수 있다'를 추가",
-    "evidence": "TASK-001 에서 성능 기준이 WARN으로 남음" }
+    "evidence": "TASK-001 에서 성능 기준이 WARN으로 남음",
+    "status": "pending",             // pending | applied | rejected
+    "recurring": 2 }                 // 같은 대상의 미반영 제안이 이미 있으면 그 수
 ]
 ```
 
-**이 Phase에서 문서를 직접 고치지 않는다.** 제안만 남기고, 사용자가 승인하면 별도 작업으로
-한다. 회고 중에 규칙을 바꾸면 그 변경이 검토를 거치지 않는다.
+`target` 은 **파일 경로로 쓴다** (`.claude/skills/wf-plan/SKILL.md`). 같은 파일을 여러 표기로
+적으면 같은 문제가 반복돼도 반복으로 집계되지 않는다.
+
+**제안하기 전에 이미 쌓인 것을 본다.**
+
+```bash
+python3 scripts/wf_status.py --proposals
+```
+
+같은 대상에 미반영 제안이 이미 있으면 `recurring` 에 그 수를 적고, **HITL#4 에서 "지금
+반영"을 선택지로 올린다** (Step 6). 같은 파일에 대한 제안이 쌓인다는 건 같은 원인의 재작업이
+계속되고 있다는 뜻이다 — 실사용에서 `coverage-policy.md` 개선이 세 태스크에 걸쳐 제안되는
+동안 같은 원인의 롤백이 반복됐다.
+
+**이 Phase 안에서 문서를 직접 고치지 않는다.** 회고 중에 규칙을 바꾸면 그 변경이 검토를
+거치지 않는다. 반영은 HITL#4 승인 이후 별도 커밋으로 한다.
+
+**대상이 워크플로우 자산이면** (`.claude/`, `docs/workflow/`, `scripts/`) 이 프로젝트를 만든
+**스타터에도 같은 변경이 필요하다.** 프로젝트에서만 고치면 다음 프로젝트가 같은 문제를 다시
+겪는다. 반영할 때 사용자에게 이것을 알린다.
 
 ### Step 4 — REFLECT JSON 저장
 
@@ -204,6 +224,7 @@ Phase 5 — TASK-001 회고
   ADR 승격     1건 — "캐시 무효화 전략"
   아키텍처 drift 0건
   규칙 개선안   1건 — docs/workflow/task-schema.md
+  ⚠ 반복       wf-plan 에 미반영 제안 3건째 (TASK-004 · 006 · 이번)
 
   리포트: <Artifact 링크>
 ```
@@ -213,7 +234,12 @@ Phase 5 — TASK-001 회고
 - **승인하고 종료** → 태스크를 DONE으로
 - **승인 + ADR 작성** → 종료 후 `/wf-adr` 로 승격 후보를 기록한다
 - **회고 보완** → 현 Phase 유지, 무엇을 보완할지 받는다
-- **제안만 반려** → 회고는 승인하되 ADR·규칙 제안은 폐기
+- **제안만 반려** → 회고는 승인하되 ADR·규칙 제안은 폐기 (`status: rejected`)
+- **승인 + 반복 제안 지금 반영** → `recurring` 이 있을 때만 제시한다. 종료 후 해당 대상의
+  미반영 제안을 **이번 것과 이전 것 모두** 한 커밋으로 반영한다
+
+반영했으면 해당 REFLECT 들의 제안에 `"status": "applied", "applied_in": "<커밋 해시>"` 를
+적는다. 적지 않으면 `/wf-status` 가 계속 미반영으로 센다.
 
 ### Step 7 — 태스크 종료
 

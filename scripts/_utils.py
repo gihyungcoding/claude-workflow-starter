@@ -365,6 +365,89 @@ def sync_tasks_json_status() -> tuple[list[str], str]:
     return changes, ""
 
 
+#: 회고 개선안의 상태. 필드가 없으면 pending 이다 (기존 REFLECT 파일 호환).
+PROPOSAL_STATUSES = ("pending", "applied", "rejected")
+
+#: 같은 대상에 미반영 제안이 이만큼 쌓이면 "반복"으로 본다.
+RECURRING_THRESHOLD = 2
+
+_AGENT_NAMES = ("scenario-validator", "code-reviewer")
+
+
+def proposal_key(target: str) -> str:
+    """회고 개선안의 target 을 집계용 키로 정규화한다.
+
+    실사용 REFLECT 에서 같은 파일이 여러 표기로 적혀 있었다 —
+    '.claude/skills/wf-plan/SKILL.md' 와 '.claude/skills/wf-plan', 'coverage-policy.md' 와
+    그 전체 경로, 'scenario-validator 정의 (V8 체크 항목)'. 표기가 다르면 같은 문제가
+    반복돼도 반복으로 보이지 않는다.
+
+    스킬은 스킬 이름('wf-plan'), 에이전트는 에이전트 이름, 그 외 파일은 파일명으로 묶는다.
+    'A 또는 B' 처럼 둘을 지목하면 첫 번째를 쓴다.
+    """
+    text = str(target or "").strip()
+    m = re.search(r"\.claude/skills/([\w-]+)(?:/(SKILL\.md|references/[\w./-]+))?", text)
+    if m:
+        ref = m.group(2)
+        if ref and ref.startswith("references/"):
+            return ref.rsplit("/", 1)[-1]
+        return m.group(1)
+    for name in _AGENT_NAMES:
+        if name in text:
+            return name
+    m = re.search(r"[\w./-]+\.(?:md|py|json|ya?ml)", text)
+    if m:
+        return m.group(0).rsplit("/", 1)[-1]
+    return text or "(대상 없음)"
+
+
+def load_rule_proposals() -> list[dict]:
+    """모든 REFLECT 의 rule_proposals 를 평탄하게 읽는다.
+
+    반환 항목: task_id, index, key, target, status, change, applied_in
+    """
+    out: list[dict] = []
+    base = workflow_design_root() / "08_reflect"
+    if not base.is_dir():
+        return out
+    for path in sorted(base.glob("REFLECT_*.json")):
+        data, err = load_json(path)
+        if err or not isinstance(data, dict):
+            continue
+        task_id = data.get("task_id") or path.stem.removeprefix("REFLECT_")
+        for i, prop in enumerate(data.get("rule_proposals") or []):
+            if not isinstance(prop, dict):
+                continue
+            status = str(prop.get("status") or "pending").lower()
+            if status not in PROPOSAL_STATUSES:
+                status = "pending"
+            out.append(
+                {
+                    "task_id": task_id,
+                    "index": i,
+                    "key": proposal_key(prop.get("target", "")),
+                    "target": prop.get("target", ""),
+                    "status": status,
+                    "change": prop.get("change", ""),
+                    "applied_in": prop.get("applied_in"),
+                }
+            )
+    return out
+
+
+def recurring_proposals(proposals: list[dict]) -> dict[str, list[dict]]:
+    """미반영 제안이 RECURRING_THRESHOLD 건 이상 쌓인 대상. 키 → 제안 목록."""
+    groups: dict[str, list[dict]] = {}
+    for prop in proposals:
+        if prop["status"] == "pending":
+            groups.setdefault(prop["key"], []).append(prop)
+    return {
+        k: v
+        for k, v in sorted(groups.items(), key=lambda kv: -len(kv[1]))
+        if len(v) >= RECURRING_THRESHOLD
+    }
+
+
 def saved_checkpoints(task_id: str) -> list[str]:
     """저장된 체크포인트 파일명 목록 (CP 번호 순). 레거시 파일도 포함한다."""
     base = task_dir(task_id) / "checkpoints"

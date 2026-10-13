@@ -13,6 +13,7 @@ memory-bank/index.md 는 파생물이라 재생성 전까지 낡아 있을 수 �
     python scripts/wf_status.py --json       # 기계용
     python scripts/wf_status.py --active     # 활성/차단만
     python scripts/wf_status.py --stale-days 14
+    python scripts/wf_status.py --proposals      # 미반영 회고 개선안 전체
 
 이 스크립트가 하지 않는 것
 -------------------------
@@ -27,7 +28,14 @@ import json
 import sys
 from datetime import date, datetime
 
-from _utils import PHASE_NAMES, list_tasks, saved_checkpoints
+from _utils import (
+    PHASE_NAMES,
+    RECURRING_THRESHOLD,
+    list_tasks,
+    load_rule_proposals,
+    recurring_proposals,
+    saved_checkpoints,
+)
 
 DEFAULT_STALE_DAYS = 14
 
@@ -122,6 +130,38 @@ def render(groups: dict, active_only: bool) -> str:
     return "\n".join(lines)
 
 
+def render_proposals(proposals: list[dict], full: bool) -> str:
+    """회고 개선안 현황. 반복 미반영이 있으면 눈에 띄게 한다.
+
+    왜 여기 있나: 실사용 8개 태스크에서 회고가 낸 개선안 22건 중 반영이 확인된 것은
+    3건이었다. 같은 파일(coverage-policy.md)에 대한 제안이 세 태스크에 걸쳐 나왔는데,
+    그 사이 같은 원인의 재작업이 계속됐다. 미반영 건이 어디에도 보이지 않았기 때문이다.
+    """
+    if not proposals:
+        return ""
+    count = {s: sum(1 for p in proposals if p["status"] == s) for s in ("pending", "applied", "rejected")}
+    lines = ["", f"회고 개선안   미반영 {count['pending']} · 반영 {count['applied']} · 반려 {count['rejected']}"]
+
+    recurring = recurring_proposals(proposals)
+    if recurring:
+        lines.append(f"  ⚠ 같은 대상에 {RECURRING_THRESHOLD}건 이상 쌓인 미반영 — 다음 태스크 전에 반영을 권합니다")
+        for key, items in recurring.items():
+            tasks = " · ".join(sorted({p["task_id"] for p in items}))
+            lines.append(f"     {key:<24} ×{len(items)}   {tasks}")
+
+    if full:
+        pending = [p for p in proposals if p["status"] == "pending"]
+        if pending:
+            lines.append("")
+            for p in pending:
+                change = str(p["change"]).replace("\n", " ")
+                lines.append(f"  {p['task_id']} #{p['index']}  [{p['key']}]")
+                lines.append(f"     {change[:150]}{'…' if len(change) > 150 else ''}")
+    elif count["pending"]:
+        lines.append("  전체 목록: python scripts/wf_status.py --proposals")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--json", action="store_true", help="JSON 으로 출력")
@@ -132,18 +172,27 @@ def main() -> int:
         default=DEFAULT_STALE_DAYS,
         help=f"정체 판정 기준 일수 (기본 {DEFAULT_STALE_DAYS})",
     )
+    parser.add_argument("--proposals", action="store_true", help="미반영 회고 개선안을 전부 표시")
     args = parser.parse_args()
 
     groups = collect(args.stale_days)
+    proposals = load_rule_proposals()
 
     if args.json:
         payload = dict(groups)
         if args.active:
             payload.pop("done", None)
+        payload["proposals"] = {
+            "pending": [p for p in proposals if p["status"] == "pending"],
+            "recurring": recurring_proposals(proposals),
+        }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
     print(render(groups, args.active))
+    block = render_proposals(proposals, args.proposals)
+    if block:
+        print(block)
     return 0
 
 
