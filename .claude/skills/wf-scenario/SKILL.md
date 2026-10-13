@@ -15,10 +15,13 @@ Plan의 `flows` 를 **검증 가능한 Given/When/Then**으로 옮긴다. 이 �
 
 1. 시나리오 **2건 이상** — happy 최소 1, error 최소 1
 2. 모든 `acceptance_criteria` 를 시나리오가 덮는다
-3. `SCENARIO_<ID>.md` 를 SoT로 쓴다. JSON은 MD에서 파생시킨다
-4. **독립검증자 서브에이전트**를 호출한다 (`scenario-validator`)
-5. 검증자 응답을 `VALIDATION_<ID>.json` 에 **가공 없이 그대로** 저장한다
-6. HITL#1 승인을 `AskUserQuestion` 으로 받는다
+3. **입력을 받는 태스크면 입력 필드마다 타입별 경계값을 대본다**
+   (→ `references/coverage-policy.md` §2-1). 길이 상한 +1, null 원소, 소수, 상한 +1 은
+   Phase 4 가 찾을 일이 아니라 여기서 쓸 일이다
+4. `SCENARIO_<ID>.md` 를 SoT로 쓴다. JSON은 MD에서 파생시킨다
+5. **독립검증자 서브에이전트**를 호출한다 (`scenario-validator`)
+6. 검증자 응답을 `VALIDATION_<ID>.json` 에 **가공 없이 그대로** 저장한다
+7. HITL#1 승인을 `AskUserQuestion` 으로 받는다
 
 ## FORBIDDEN
 
