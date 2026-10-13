@@ -31,7 +31,7 @@ description: >-
 - `workflow_design/08_reflect/REFLECT_<ID>.json` 존재
 - `keep.length >= 1`, `insights.length >= 1`
 - `completion_report.approved_by_human == true`
-- `CP-5.2`, `CP-5.3` 저장
+- `CP-5.2` 저장
 - **Phase 1~5의 모든 산출물과 체크포인트가 커밋됨**
 - **`tasks.json` 의 `status` 가 `done`** — memory-bank 만 DONE 이면 태스크가 닫힌 게 아니다
 
@@ -56,7 +56,8 @@ grep -h "^  - decision:" -A2 "$REPO_ROOT/memory-bank/TASK-001/checkpoints/"*/*.m
 
 볼 것:
 
-- `SUPERSEDED` 체크포인트나 `_retry` 파일 → 어디서 되돌아갔는가
+- 각 CP 의 `attempts` → 어디서 몇 번, 왜 되돌아갔는가
+  (v1 체크포인트를 쓰던 태스크면 `_retry` 파일과 `SUPERSEDED` 가 같은 정보다)
 - 각 CP의 `decisions` → 무엇을 왜 결정했는가
 - `VERIFY_<ID>.json` 의 WARN·예외 승인 → 무엇을 남겨뒀는가
 - `DEV_<ID>.json` 의 `scope_deviations` → 계획을 벗어난 곳
@@ -87,7 +88,7 @@ docs/workflow/task-schema.md 의 WRU 필수 조건 5번(Verify 자동화 가능)
 
 Try는 **어느 파일의 무엇을 바꿀지**까지 적는다. 그렇지 않으면 실행되지 않는다.
 
-`CP-5.1_kpt-analysis.md` 저장 (권장).
+KPT 는 `REFLECT_<ID>.json` 에 들어가므로 따로 저장하지 않는다.
 
 ### Step 3 — Foundation 되먹임
 
@@ -103,7 +104,7 @@ Try는 **어느 파일의 무엇을 바꿀지**까지 적는다. 그렇지 않�
 "adr_candidates": [
   { "decision": "캐시 무효화를 이벤트 기반으로 처리",
     "why_broader": "다른 조회 API 에도 같은 방식이 필요하다",
-    "evidence": "CP-3.1 의 decisions",
+    "evidence": "CP-3.4 의 decisions",
     "suggested_title": "캐시 무효화 전략" }
 ]
 ```
@@ -219,7 +220,7 @@ Phase 5 — TASK-001 회고
 승인 후:
 
 1. `completion_report.approved_by_human = true`
-2. `CP-5.3_hitl4-approved.md` 저장
+2. `CP-5.2` 갱신
 3. `activeContext.md` 의 `status` 를 `DONE` 으로
 4. 체크포인트들의 `status` 를 `ARCHIVED` 로
 5. `python scripts/rebuild_memory_bank_index.py`

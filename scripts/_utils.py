@@ -46,28 +46,53 @@ PHASE_ARTIFACTS = {
     "5": ("08_reflect", "REFLECT_{task_id}.json"),
 }
 
-#: 체크포인트 고정 목록. (phase_dir, 파일명, 필수여부)
+#: 체크포인트 — Phase 당 하나. (phase_dir, 파일명, 필수여부)
+#:
+#: 체크포인트는 세션 복구용 커서다. 읽는 곳은 셋뿐이다 — 재개(마지막 CP 의 next_steps),
+#: 회고(모든 CP 의 decisions), 게이트(존재 여부). 그래서 Phase 마다 하나만 두고,
+#: 진행하면서 같은 파일을 덮어쓰며 저장할 때마다 커밋한다. 이력은 git 에 있다.
+#:
+#: v1 에서는 19종(필수 12)을 두고 재시도마다 _retry 파일을 새로 만들었다. 실사용
+#: 8개 태스크에서 체크포인트가 전체 산출물의 54%(10,368줄)를 차지했는데, 그중 위
+#: 세 곳이 실제로 읽는 내용은 약 20%였다. HITL 승인 CP 4종은 단계 JSON 의
+#: human_review 와 같은 사실을 두 번 적고 있었다.
 CHECKPOINTS = [
+    ("phase1", "CP-1.3_context-plan.md", True),
+    ("phase2a", "CP-2.2_canonical-scenarios.md", True),
+    ("phase2b", "CP-2.5_red-code.md", True),
+    ("phase3", "CP-3.4_context-dev.md", True),
+    ("phase4", "CP-4.2_verification.md", True),
+    ("phase5", "CP-5.2_context-reflect.md", True),
+]
+
+#: v1 의 나머지 13종. 새로 쓰지 않는다. 이미 만들어진 프로젝트의 파일이 경로 검사에
+#: 걸리지 않도록 허용만 한다. _retry 접미사도 같은 이유로 허용만 한다.
+LEGACY_CHECKPOINTS = [
     ("phase1", "CP-1.1_codebase-analysis.md", False),
     ("phase1", "CP-1.2_design-route.md", False),
-    ("phase1", "CP-1.3_context-plan.md", True),
     ("phase2a", "CP-2.1_path-branch.md", False),
-    ("phase2a", "CP-2.2_canonical-scenarios.md", True),
-    ("phase2a", "CP-2.3_validator-passed.md", True),
-    ("phase2a", "CP-2.4_hitl1-approved.md", True),
-    ("phase2b", "CP-2.5_red-code.md", True),
-    ("phase2b", "CP-2.6_hitl2-approved.md", True),
+    ("phase2a", "CP-2.3_validator-passed.md", False),
+    ("phase2a", "CP-2.4_hitl1-approved.md", False),
+    ("phase2b", "CP-2.6_hitl2-approved.md", False),
     ("phase3", "CP-3.1_impl-strategy.md", False),
-    ("phase3", "CP-3.2_tests-green.md", True),
+    ("phase3", "CP-3.2_tests-green.md", False),
     ("phase3", "CP-3.3_refactor.md", False),
-    ("phase3", "CP-3.4_context-dev.md", True),
     ("phase4", "CP-4.1_rule-compliance.md", False),
-    ("phase4", "CP-4.2_verification.md", True),
-    ("phase4", "CP-4.3_hitl3-approved.md", True),
+    ("phase4", "CP-4.3_hitl3-approved.md", False),
     ("phase5", "CP-5.1_kpt-analysis.md", False),
-    ("phase5", "CP-5.2_context-reflect.md", True),
-    ("phase5", "CP-5.3_hitl4-approved.md", True),
+    ("phase5", "CP-5.3_hitl4-approved.md", False),
 ]
+
+
+def _cp_order(entry: tuple[str, str, bool]) -> tuple[int, int]:
+    """'CP-2.5_red-code.md' → (2, 5). 저장 순서를 복원하는 데 쓴다."""
+    num = entry[1].split("_", 1)[0].removeprefix("CP-")
+    major, _, minor = num.partition(".")
+    return int(major), int(minor or 0)
+
+
+#: 현행 + 레거시를 CP 번호 순으로. 경로 검사와 기존 태스크 표시에 쓴다.
+ALL_CHECKPOINTS = sorted(CHECKPOINTS + LEGACY_CHECKPOINTS, key=_cp_order)
 
 PHASE_ORDER = ["1", "2a", "2b", "3", "4", "5"]
 
@@ -341,12 +366,12 @@ def sync_tasks_json_status() -> tuple[list[str], str]:
 
 
 def saved_checkpoints(task_id: str) -> list[str]:
-    """저장된 체크포인트 파일명 목록 (phase 디렉터리 순)."""
+    """저장된 체크포인트 파일명 목록 (CP 번호 순). 레거시 파일도 포함한다."""
     base = task_dir(task_id) / "checkpoints"
     if not base.is_dir():
         return []
     found = []
-    for phase_dir, filename, _ in CHECKPOINTS:
+    for phase_dir, filename, _ in ALL_CHECKPOINTS:
         if (base / phase_dir / filename).is_file():
             found.append(filename)
     return found

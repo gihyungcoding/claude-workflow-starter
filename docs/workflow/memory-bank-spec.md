@@ -136,9 +136,9 @@ python scripts/rebuild_memory_bank_index.py
 1. activeContext.md 의 phase / last_checkpoint 확인
 2. checkpoints/phase<N>/ 에서 실제 마지막 CP 파일을 읽는다
    └─ activeContext.md 와 어긋나면 CP 파일 쪽을 믿는다
-3. CP 의 progress.completed 를 확인 — 여기 있는 작업은 다시 하지 않는다
+3. CP 의 summary 를 확인 — 그 이전 작업은 다시 하지 않는다
 4. CP 의 decisions 를 확인 — 여기 있는 결정은 다시 논의하지 않는다
-5. CP 의 approval 을 확인 — APPROVE 가 있으면 그 HITL은 재승인하지 않는다
+5. 단계 JSON 의 승인 필드를 확인 — 채워져 있으면 그 HITL 은 재승인하지 않는다
 6. CP 의 next_steps[0] 부터 재개한다
 ```
 

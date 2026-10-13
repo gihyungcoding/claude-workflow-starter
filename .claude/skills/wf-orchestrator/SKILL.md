@@ -86,11 +86,11 @@ ls "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/
 | Phase | 통과 조건 |
 |---|---|
 | **1 → 2a** | `PLAN_<ID>.json` 존재 · 파싱 성공 · `design.inputs`/`outputs`/`flows` 비어 있지 않음 · `route ∈ {Backend, Frontend, Database}` · `codebase_analysis` 존재 · `architecture_refs` 채워짐(아키텍처 문서가 있는 경우) · `CP-1.3` 저장 |
-| **2a → 2b** | `SCENARIO_<ID>.md` + `.json` 존재 · `scenarios.length ≥ 2` (happy ≥1, error ≥1) · `VALIDATION_<ID>.json` 의 `overall.pass == true` · `human_input.generate_red_trigger == true` · `CP-2.2`·`CP-2.3`·`CP-2.4` 저장 |
-| **2b → 3** | `TEST_<ID>.json` 존재 · `red_scenarios.length > 0` · 테스트 실행 결과가 **실제로 실패** · 테스트 함수 개수 == 승인된 시나리오 개수 · `human_review.approved == true` · `CP-2.5`·`CP-2.6` 저장 |
-| **3 → 4** | `DEV_<ID>.json` 존재 · `test_status == "green"` · `failed == 0` · `passed ≥ red_scenarios.length` · 린트 error 0 · `CP-3.2`·`CP-3.4` 저장 |
-| **4 → 5** | `VERIFY_<ID>.json` 존재 · `status ∈ {PASS, WARN}` (FAIL 불가) · **아키텍처 제약 error 0건** · `human_review.decision ∈ {APPROVE, EXCEPTION_APPROVE}` · `CP-4.2`·`CP-4.3` 저장 |
-| **5 → DONE** | `REFLECT_<ID>.json` 존재 · `keep ≥ 1` · `insights ≥ 1` · `approved_by_human == true` · `CP-5.2`·`CP-5.3` 저장 · **모든 산출물 커밋됨** |
+| **2a → 2b** | `SCENARIO_<ID>.md` + `.json` 존재 · `scenarios.length ≥ 2` (happy ≥1, error ≥1) · `VALIDATION_<ID>.json` 의 `overall.pass == true` · `human_input.generate_red_trigger == true` · `CP-2.2` 저장 |
+| **2b → 3** | `TEST_<ID>.json` 존재 · `red_scenarios.length > 0` · 테스트 실행 결과가 **실제로 실패** · 테스트 함수 개수 == 승인된 시나리오 개수 · `human_review.approved == true` · `CP-2.5` 저장 |
+| **3 → 4** | `DEV_<ID>.json` 존재 · `test_status == "green"` · `failed == 0` · `passed ≥ red_scenarios.length` · 린트 error 0 · `CP-3.4` 저장 |
+| **4 → 5** | `VERIFY_<ID>.json` 존재 · `status ∈ {PASS, WARN}` (FAIL 불가) · **아키텍처 제약 error 0건** · `human_review.decision ∈ {APPROVE, EXCEPTION_APPROVE}` · `CP-4.2` 저장 |
+| **5 → DONE** | `REFLECT_<ID>.json` 존재 · `keep ≥ 1` · `insights ≥ 1` · `approved_by_human == true` · `CP-5.2` 저장 · **모든 산출물 커밋됨** |
 | **DONE → Ship** | `ship_preflight.py` exit 0 — 산출물·**신선도**·제약·작업트리·브랜치·병합가능 |
 
 자동 검증:
@@ -164,7 +164,7 @@ Phase 2a 완료 — TASK-001
 
   산출물   workflow_design/05_scenario/SCENARIO_TASK-001.md (시나리오 6건)
   검증     PASS (경고 1건)
-  체크포인트 CP-2.2, CP-2.3, CP-2.4
+  체크포인트 CP-2.2
   게이트   통과 — 2b 진입 가능
 
 다음: Red 테스트 코드 생성

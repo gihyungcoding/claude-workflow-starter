@@ -35,7 +35,7 @@ Plan의 `flows` 를 **검증 가능한 Given/When/Then**으로 옮긴다. 이 �
 - 모든 `acceptance_criteria` 가 최소 1개 시나리오에 매핑됨
 - `validator/VALIDATION_<ID>.json` 의 `overall.pass == true`
 - `human_input.generate_red_trigger == true`
-- `CP-2.2`, `CP-2.3`, `CP-2.4` 저장 및 커밋
+- `CP-2.2` 저장 및 커밋 — 시나리오 작성·독립검증·HITL#1 승인마다 **같은 파일을 갱신**한다
 
 ```bash
 python scripts/validate_phase2a_gate.py --task-id TASK-001    # exit 0 이어야 함
@@ -54,7 +54,7 @@ cat workflow_design/04_plan/PLAN_TASK-001.json
 `design.flows` 와 `acceptance_criteria` 가 시나리오의 재료다. 태스크 원문을 다시 읽을
 필요는 없다 — Phase 1이 이미 정규화했다.
 
-`CP-2.1_path-branch.md` 저장 (권장) — 시나리오를 새로 쓰는지, 기존 것을 확장하는지 기록.
+새로 쓰는지 기존 것을 확장하는지는 `CP-2.2` 의 `decisions` 에 남긴다.
 
 ### Step 2 — 시나리오 작성
 
@@ -150,7 +150,8 @@ TASK-001 의 시나리오를 검증해주세요.
 - `overall.pass == false` → 지적된 항목을 고치고 Step 2부터 다시. 재검증은 최대 3회
 - 3회를 넘으면 Phase 1 롤백을 사용자에게 제안한다 (→ `docs/workflow/reject-state-machine.md`)
 
-`CP-2.3_validator-passed.md` 저장.
+`CP-2.2` 를 갱신한다 — 검증 결과 원문은 `VALIDATION_<ID>.json` 에 있으므로 `summary` 한 줄과
+반영하기로 한 경고만 `decisions` 에 적는다.
 
 ### Step 5 — HITL #1
 
@@ -181,7 +182,7 @@ Phase 2a — TASK-001
 
 승인을 받으면:
 1. `SCENARIO_<ID>.json` 의 `human_input.generate_red_trigger = true`
-2. `CP-2.4_hitl1-approved.md` 저장 (`approval` 블록 포함)
+2. `CP-2.2` 갱신 — `next_steps` 를 Phase 2b 로 (승인 사실은 1번 필드가 정본이다)
 3. `activeContext.md` 갱신
 4. 커밋
 

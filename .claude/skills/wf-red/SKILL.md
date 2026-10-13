@@ -35,7 +35,7 @@ description: >-
 - 테스트 실행 결과가 **실제 실패** (출력을 `red_result` 에 기록)
 - 테스트 함수 개수 == 승인된 시나리오 개수 (grep으로 센 수치를 기록)
 - `human_review.approved == true`
-- `CP-2.5`, `CP-2.6` 저장 및 커밋
+- `CP-2.5` 저장 및 커밋
 
 ---
 
@@ -248,7 +248,7 @@ Phase 2b — TASK-001
 
 승인 후:
 1. `TEST_<ID>.json` 의 `human_review.approved = true`
-2. `CP-2.6_hitl2-approved.md` 저장
+2. `CP-2.5` 갱신 — `next_steps` 를 Phase 3 으로
 3. `activeContext.md` 갱신
 4. 커밋 — **테스트 코드도 함께 커밋한다** (빨간 상태로 커밋하는 것이 정상이다)
 

@@ -119,7 +119,7 @@ architecture.md 의 3계층(API/Service/Repository)에 캐시를 어디에 둘�
 Foundation 문서가 아직 없으면(빈 프로젝트) 이 단계를 건너뛰되, 사용자에게
 `/wf-init` 을 한 번 안내하고 진행한다. 막지 않는다.
 
-`CP-1.1_codebase-analysis.md` 에 참조한 ADR 번호를 남긴다.
+참조한 ADR 번호는 PLAN 의 `architecture_refs` 에 남긴다.
 
 ### Step 2 — 코드베이스 조사
 
@@ -151,7 +151,7 @@ Foundation 문서가 아직 없으면(빈 프로젝트) 이 단계를 건너뛰�
 한 태스크는 route 하나만 갖는다. 양쪽에 걸치면 태스크를 나눠야 한다는 신호이므로
 사용자에게 알린다 (→ `docs/workflow/task-schema.md` §1 묶음 규칙).
 
-`CP-1.2_design-route.md` 저장 (권장).
+route 와 그 근거는 PLAN 에 있으므로 따로 저장하지 않는다.
 
 ### Step 4 — 구조 정규화
 

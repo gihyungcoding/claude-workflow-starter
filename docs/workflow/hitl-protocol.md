@@ -11,12 +11,15 @@
 
 ## 1. HITL 지점 4개
 
-| # | Phase | 무엇을 검토하나 | 승인 시 기록 위치 | 체크포인트 |
-|---|---|---|---|---|
-| **1** | 2a | Canonical 시나리오 + 독립검증 결과 | `SCENARIO_<ID>.json` → `human_input.generate_red_trigger: true` | `CP-2.4_hitl1-approved.md` |
-| **2** | 2b | Red 테스트 코드 | `TEST_<ID>.json` → `human_review.approved: true` | `CP-2.6_hitl2-approved.md` |
-| **3** | 4 | 검증 리포트 | `VERIFY_<ID>.json` → `human_review.decision` | `CP-4.3_hitl3-approved.md` |
-| **4** | 5 | 회고 + 완료 리포트 | `REFLECT_<ID>.json` → `completion_report.approved_by_human: true` | `CP-5.3_hitl4-approved.md` |
+| # | Phase | 무엇을 검토하나 | 승인 기록 — **여기가 정본** |
+|---|---|---|---|
+| **1** | 2a | Canonical 시나리오 + 독립검증 결과 | `SCENARIO_<ID>.json` → `human_input.generate_red_trigger: true` |
+| **2** | 2b | Red 테스트 코드 | `TEST_<ID>.json` → `human_review.approved: true` |
+| **3** | 4 | 검증 리포트 | `VERIFY_<ID>.json` → `human_review.decision` |
+| **4** | 5 | 회고 + 완료 리포트 | `REFLECT_<ID>.json` → `completion_report.approved_by_human: true` |
+
+> v1 은 승인마다 별도 체크포인트(`CP-2.4`·`2.6`·`4.3`·`5.3`)를 하나씩 더 만들었다.
+> 위 필드와 같은 사실을 두 번 적은 것이라 v2 에서 없앴다 (→ `checkpoint-template.md`).
 
 **HITL 승인 없이 다음 Phase로 넘어갈 수 없다.** 각 Phase의 EXIT GATE가 이 필드를 확인한다.
 
@@ -87,23 +90,24 @@ AskUserQuestion({
 
 ## 4. 승인 기록
 
-승인을 받으면 **세 곳을 함께 갱신**한다. 하나라도 빠지면 복구 시 재승인을 요구하게 된다.
+승인을 받으면 **두 곳을 갱신**한다.
 
-1. **Phase 산출물 JSON** — 위 §1 표의 필드
-2. **HITL 체크포인트** — `approval` 블록 포함 (→ `checkpoint-template.md` §2)
-3. **`activeContext.md`** — `phase`, `last_checkpoint` 갱신
+1. **Phase 산출물 JSON** — 위 §1 표의 필드. 승인자의 코멘트가 있으면 같은 객체에 `note` 로
+2. **그 Phase 의 체크포인트** — `next_steps` 를 다음 Phase 로 바꾸고, 승인 과정에서 정한 것이
+   있으면 `decisions` 에 추가한다 (→ `checkpoint-template.md`)
 
-```yaml
-# 체크포인트의 approval 블록
-approval:
-  approved_at: 2026-09-01T11:02:00Z
-  decision: APPROVE
-  comment: "SC-04 Then 을 관찰 가능한 형태로 고친 뒤 승인"
+```jsonc
+// VERIFY_TASK-001.json
+"human_review": {
+  "decision": "APPROVE",
+  "verified_commit": "a1b2c3d",
+  "note": "SC-04 Then 을 관찰 가능한 형태로 고친 뒤 승인"
+}
 ```
 
 > **재승인을 요구하지 않는다.**
-> 세션 복구 시 마지막 체크포인트에 `approval.decision: APPROVE` 가 있으면 그 HITL은 통과한
-> 것으로 간주한다. 사람을 같은 자료로 두 번 부르는 것은 워크플로우의 실패다.
+> 세션 복구 시 **단계 JSON 의 승인 필드**가 채워져 있으면 그 HITL 은 통과한 것이다.
+> 사람을 같은 자료로 두 번 부르는 것은 워크플로우의 실패다.
 
 ---
 

@@ -43,9 +43,9 @@ Phase별 진행 표, 저장된 체크포인트, 산출물 존재 여부, 미충�
 TASK-004  매장 검색 권한 필터
 
   Phase 1 Plan      ✅  CP-1.3
-  Phase 2a Scenario ✅  CP-2.2 CP-2.3 CP-2.4   (재시도 1회)
-  Phase 2b Red      ✅  CP-2.5 CP-2.6
-  Phase 3 Green     🔄  CP-3.1                  ← 현재
+  Phase 2a Scenario ✅  CP-2.2   (재시도 1회 — attempts)
+  Phase 2b Red      ✅  CP-2.5
+  Phase 3 Green     🔄  CP-3.4                  ← 현재
   Phase 4 Verify    ⬜
   Phase 5 Reflect   ⬜
 
@@ -54,7 +54,7 @@ TASK-004  매장 검색 권한 필터
 
   미충족 게이트 (3→4)
     - DEV_TASK-004.json 없음
-    - CP-3.2, CP-3.4 미저장
+    - CP-3.4 미저장
 ```
 
 ## 파생 상태가 어긋났을 때

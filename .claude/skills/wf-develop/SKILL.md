@@ -34,7 +34,7 @@ Red 테스트를 통과시킨다. **최소 구현 → 확인 → 리팩토링** 
 - 전체 테스트 스위트 통과 (기존 테스트 포함)
 - 린트 error 0 — **린트 도구가 없으면 `"errors": null` + `skipped_reason`.**
   `"command": "N/A", "errors": 0` 으로 적으면 이 게이트가 무력해진다
-- `CP-3.2`, `CP-3.4` 저장 및 커밋
+- `CP-3.4` 저장 및 커밋
 
 ---
 
@@ -49,7 +49,7 @@ cat workflow_design/04_plan/PLAN_TASK-001.json         # 어디를 고치는가,
 
 `human_review.approved` 가 `true` 가 아니면 중단한다.
 
-`CP-3.1_impl-strategy.md` 저장 (권장) — 어떤 순서로 구현할지, 재사용할 것이 무엇인지.
+구현 순서나 재사용 대상을 정했으면 `CP-3.4` 의 `decisions` 에 남긴다.
 
 ### Step 2 — 최소 구현
 
@@ -74,7 +74,7 @@ pytest                                        # 전체 스위트
 실패가 남아 있으면 Step 2로 돌아간다. **테스트를 고치지 않는다.**
 테스트가 정말 잘못됐다고 판단되면 Phase 2b로 롤백을 사용자에게 제안한다.
 
-`CP-3.2_tests-green.md` 저장 (실행 출력 요약 포함).
+`CP-3.4` 를 갱신한다 — `summary` 에 통과 수 한 줄. 실행 출력은 `DEV_<ID>.json` 에 있다.
 
 ### Step 4 — 리팩토링
 
@@ -93,7 +93,7 @@ pytest                                        # 전체 스위트
 pytest
 ```
 
-`CP-3.3_refactor.md` 저장 (권장). 리팩토링을 하지 않기로 했다면 그 판단도 기록한다.
+리팩토링 여부와 이유를 `CP-3.4` 의 `decisions` 에 남긴다 — 하지 않기로 했어도.
 
 ### Step 5 — 린트·포맷
 
@@ -152,7 +152,7 @@ pytest
 `scope_deviations` — Plan에 없던 파일을 고쳤다면 여기에 이유와 함께 적는다.
 비어 있는 것이 정상이고, 항목이 있으면 Phase 4가 그것을 검토한다.
 
-`CP-3.4_context-dev.md` 저장, `activeContext.md` 갱신, 커밋.
+`CP-3.4_context-dev.md` 를 마무리 갱신하고(`next_steps` 를 Phase 4 로), `activeContext.md` 갱신, 커밋.
 
 ```bash
 git add src/ workflow_design/06_dev memory-bank/TASK-001

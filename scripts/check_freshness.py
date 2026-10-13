@@ -12,7 +12,7 @@ VERIFY_<ID>.json 에 verified_commit 을 기록해 두고 그것과 대조한다
 
 ★ HEAD 를 그대로 비교하지 않는 이유
 ----------------------------------
-Phase 4 승인 직후에도 CP-4.3 체크포인트 커밋이 이어지고, Phase 5 회고 산출물도 커밋된다.
+Phase 4 승인 직후에도 체크포인트 갱신 커밋이 이어지고, Phase 5 회고 산출물도 커밋된다.
 그래서 HEAD SHA 를 단순 비교하면 정상 흐름에서도 항상 stale 로 판정된다.
 verified_commit..HEAD 의 diff 에서 **워크플로우 산출물이 아닌 파일**이 바뀌었을 때만
 stale 로 본다 (_utils.is_source_file).

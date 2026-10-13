@@ -42,7 +42,7 @@ description: >-
 - **`evidence.lint.exit_code` 가 실제 숫자** — 린트 도구가 없으면 `null` + `skipped_reason`
 - `human_review.decision ∈ {APPROVE, EXCEPTION_APPROVE}`
 - `human_review.verified_commit` 기록됨
-- `CP-4.2`, `CP-4.3` 저장 및 커밋
+- `CP-4.2` 저장 및 커밋
 
 ---
 
@@ -174,7 +174,7 @@ ARCH-001 위반 — src/api/store_search.py:12
 - 변경한 함수를 호출하는 다른 코드가 있는가 (Grep)
 - Plan에 없던 파일을 고쳤는가 (`DEV_<ID>.json` 의 `scope_deviations`)
 
-`CP-4.1_rule-compliance.md` 저장 (권장).
+결과는 `VERIFY_<ID>.json` 에 들어가므로 따로 저장하지 않는다.
 
 ### Step 5 — 코드 리뷰
 
@@ -321,7 +321,7 @@ Phase 4 — TASK-001    status: WARN
    재검증을 요구한다 — 사람이 검토하지 않은 코드가 나가는 것을 막는 장치다.
    승인 전에 미리 채워두지 않는다.
 3. `EXCEPTION_APPROVE` 면 `exceptions` 배열에 무엇을 예외 처리했는지 남긴다
-4. `CP-4.3_hitl3-approved.md` 저장
+4. `CP-4.2` 갱신 — `next_steps` 를 Phase 5 로
 5. `activeContext.md` 갱신, 커밋
 
 > 커밋되지 않은 변경이 있는 상태로 승인하면 `verified_commit` 이 실제 검증 대상과

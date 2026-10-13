@@ -38,9 +38,9 @@ ls -1 "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/
 
 | 필드 | 어떻게 쓰나 |
 |---|---|
-| `progress.completed` | 여기 있는 작업은 **다시 하지 않는다** |
+| `summary` | 어디까지 왔는지. 그 이전 작업은 **다시 하지 않는다** |
 | `decisions` | 여기 있는 결정은 **다시 논의하지 않는다** |
-| `approval` | `decision: APPROVE` 가 있으면 그 HITL은 **재승인하지 않는다** |
+| 단계 JSON 의 승인 필드 | 채워져 있으면 그 HITL 은 **재승인하지 않는다** (→ `hitl-protocol.md` §4) |
 | `next_steps` | `priority: 1` 부터 재개한다 |
 
 ## 4. 산출물 확인

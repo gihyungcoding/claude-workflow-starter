@@ -156,19 +156,14 @@ def validate(task_id: str, skip_hitl: bool) -> Result:
             "" if trigger is True else f"값이 {trigger!r} — 사람 승인이 기록되지 않았다",
         )
 
-    # 6. 체크포인트
-    cp_dir = task_dir(task_id) / "checkpoints" / "phase2a"
-    required = [
-        "CP-2.2_canonical-scenarios.md",
-        "CP-2.3_validator-passed.md",
-    ]
-    if not skip_hitl:
-        required.append("CP-2.4_hitl1-approved.md")
-    missing = [name for name in required if not (cp_dir / name).is_file()]
+    # 6. 체크포인트 — Phase 2a 는 하나다.
+    # 독립검증 통과는 4번(VALIDATION 파일)이, HITL#1 승인은 5번(generate_red_trigger)이
+    # 이미 확인한다. v1 은 같은 사실을 CP-2.3·CP-2.4 파일로 한 번 더 요구했다.
+    cp = task_dir(task_id) / "checkpoints" / "phase2a" / "CP-2.2_canonical-scenarios.md"
     result.check(
-        "필수 체크포인트 저장",
-        not missing,
-        f"누락: {', '.join(missing)}" if missing else "",
+        "체크포인트 저장 (CP-2.2)",
+        cp.is_file(),
+        "" if cp.is_file() else f"누락: {cp.name}",
     )
 
     return result

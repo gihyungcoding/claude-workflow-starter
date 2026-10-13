@@ -94,31 +94,21 @@ MEMORY_BANK_ROOT="$REPO_ROOT/memory-bank"
 # 이후 모든 경로는 "$MEMORY_BANK_ROOT/..." — bare "memory-bank/..." 금지
 ```
 
-### 체크포인트 파일명 — 고정 목록
+### 체크포인트 파일명 — Phase 당 하나
 
-슬러그는 아래 19개로 **고정**한다. 자유 작명 금지.
+자유 작명 금지. 아래 6개만 쓴다 (→ `checkpoint-template.md`).
 
-| Phase | 디렉터리 | 파일명 | 필수 |
-|---|---|---|---|
-| 1 | `phase1/` | `CP-1.1_codebase-analysis.md` | 권장 |
-| 1 | `phase1/` | `CP-1.2_design-route.md` | 권장 |
-| 1 | `phase1/` | `CP-1.3_context-plan.md` | **필수** |
-| 2a | `phase2a/` | `CP-2.1_path-branch.md` | 권장 |
-| 2a | `phase2a/` | `CP-2.2_canonical-scenarios.md` | **필수** |
-| 2a | `phase2a/` | `CP-2.3_validator-passed.md` | **필수** |
-| 2a | `phase2a/` | `CP-2.4_hitl1-approved.md` | **필수** |
-| 2b | `phase2b/` | `CP-2.5_red-code.md` | **필수** |
-| 2b | `phase2b/` | `CP-2.6_hitl2-approved.md` | **필수** |
-| 3 | `phase3/` | `CP-3.1_impl-strategy.md` | 권장 |
-| 3 | `phase3/` | `CP-3.2_tests-green.md` | **필수** |
-| 3 | `phase3/` | `CP-3.3_refactor.md` | 권장 |
-| 3 | `phase3/` | `CP-3.4_context-dev.md` | **필수** |
-| 4 | `phase4/` | `CP-4.1_rule-compliance.md` | 권장 |
-| 4 | `phase4/` | `CP-4.2_verification.md` | **필수** |
-| 4 | `phase4/` | `CP-4.3_hitl3-approved.md` | **필수** |
-| 5 | `phase5/` | `CP-5.1_kpt-analysis.md` | 권장 |
-| 5 | `phase5/` | `CP-5.2_context-reflect.md` | **필수** |
-| 5 | `phase5/` | `CP-5.3_hitl4-approved.md` | **필수** |
+| Phase | 파일 |
+|---|---|
+| 1 | `phase1/CP-1.3_context-plan.md` |
+| 2a | `phase2a/CP-2.2_canonical-scenarios.md` |
+| 2b | `phase2b/CP-2.5_red-code.md` |
+| 3 | `phase3/CP-3.4_context-dev.md` |
+| 4 | `phase4/CP-4.2_verification.md` |
+| 5 | `phase5/CP-5.2_context-reflect.md` |
+
+v1 의 나머지 13종(`CP-1.1`·`2.3`·`2.4`·`2.6`·`3.2`·`4.3`·`5.3` 등)과 `_retry<N>` 접미사는
+**새로 쓰지 않는다.** 이미 만들어진 프로젝트의 파일이 걸리지 않도록 경로 검사가 허용만 한다.
 
 > **원본 대비 변경 — CP-2.4 ID 충돌 해소**
 > 원본은 `1003a`가 "CP-2.4 = 독립검증", `1003b`/마스터가 "CP-2.4 = Red 코드"로 같은 ID를 서로

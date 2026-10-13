@@ -45,19 +45,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from _utils import (  # noqa: E402
+    ALL_CHECKPOINTS,
     ALLOWED_DOC_DIRS,
     ALLOWED_WORKFLOW_DIRS,
-    CHECKPOINTS,
     DOC_NAME_EXEMPT,
     KEBAB_RE,
     TASK_ID_RE,
     repo_root,
 )
 
-ALLOWED_CP_FILENAMES = {name for _, name, _ in CHECKPOINTS}
-ALLOWED_CP_DIRS = {phase for phase, _, _ in CHECKPOINTS}
+# 레거시(v1) 파일명도 허용한다 — 이미 만들어진 프로젝트의 체크포인트가 걸리지 않게.
+# 새로 쓸 이름은 _utils.CHECKPOINTS 의 6개뿐이고, 그건 스킬이 지시한다.
+ALLOWED_CP_FILENAMES = {name for _, name, _ in ALL_CHECKPOINTS}
+ALLOWED_CP_DIRS = {phase for phase, _, _ in ALL_CHECKPOINTS}
 
-#: 재시도 체크포인트: CP-2.2_canonical-scenarios_retry1.md
+#: v1 재시도 체크포인트: CP-2.2_canonical-scenarios_retry1.md
+#: v2 에서는 같은 파일을 덮어쓰고 attempts 에 한 줄을 남긴다. 기존 파일 호환을 위해 허용만 한다.
 RETRY_SUFFIX_RE = re.compile(r"_retry\d+(?=\.md$)")
 
 DOC_REF = "docs/workflow/artifact-paths.md"

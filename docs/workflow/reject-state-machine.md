@@ -125,10 +125,11 @@ unblock_condition: "TASK-014 완료 후 DEV_TASK-014.json 의 응답 스키마 �
 
 되돌아간 Phase에서 **처음부터 다시 하지 않는다.** 거절 사유가 지목한 부분만 고친다.
 
-- 이전 체크포인트의 `status` 를 `SUPERSEDED` 로 바꾸고 파일은 남긴다
-- 새 체크포인트는 같은 CP 번호에 `_retry<N>` 접미사를 붙인다
-  (예: `CP-2.2_canonical-scenarios_retry1.md`)
-- 새 체크포인트의 `decisions` 에 **무엇을 왜 바꿨는지** 기록한다
+- 되돌아간 Phase 의 체크포인트를 **덮어쓰고** `attempts` 에 한 줄을 추가한다 —
+  무엇 때문에 왔고(`outcome`) 어디로 왔는지(`back_to`)
+- `decisions` 에 **이번 시도에서 무엇을 바꿨는지** 추가한다
+- 새 파일을 만들지 않는다. 이전 시도의 원문은 git 이력에 있다
+  (→ `checkpoint-template.md` §5)
 
 이 이력이 Phase 5 회고의 입력이 된다. 거절이 반복된 지점은 대개 규칙이나 태스크 정의에
 문제가 있다는 신호다.
