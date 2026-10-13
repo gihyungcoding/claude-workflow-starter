@@ -373,6 +373,22 @@ RECURRING_THRESHOLD = 2
 
 _AGENT_NAMES = ("scenario-validator", "code-reviewer")
 
+#: 저장소 파일에서 읽은 자유 텍스트를 출력할 때의 상한.
+DISPLAY_TEXT_MAX = 150
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
+
+
+def display_text(value: object, limit: int = DISPLAY_TEXT_MAX) -> str:
+    """파일에서 읽은 자유 텍스트를 한 줄로 정제해 출력용으로 만든다.
+
+    REFLECT 의 change·target 같은 값은 사람이 쓴 문장이고, /wf-status 출력은 에이전트가
+    컨텍스트로 읽는다. 줄바꿈·제어 문자·방향 제어 문자를 그대로 내보내면 출력 형식을
+    흉내 내거나 지시문처럼 보이는 블록을 만들 수 있다. 한 줄로 접고 길이를 자른다.
+    """
+    text = _CONTROL_RE.sub(" ", str(value or ""))
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
 
 def proposal_key(target: str) -> str:
     """회고 개선안의 target 을 집계용 키로 정규화한다.
@@ -398,7 +414,8 @@ def proposal_key(target: str) -> str:
     m = re.search(r"[\w./-]+\.(?:md|py|json|ya?ml)", text)
     if m:
         return m.group(0).rsplit("/", 1)[-1]
-    return text or "(대상 없음)"
+    # 경로로 정규화하지 못한 자유 텍스트 — 키로 쓰이고 그대로 출력되므로 짧게 자른다
+    return display_text(text, 40) or "(대상 없음)"
 
 
 def load_rule_proposals() -> list[dict]:

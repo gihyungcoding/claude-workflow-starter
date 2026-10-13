@@ -31,6 +31,7 @@ from datetime import date, datetime
 from _utils import (
     PHASE_NAMES,
     RECURRING_THRESHOLD,
+    display_text,
     list_tasks,
     load_rule_proposals,
     recurring_proposals,
@@ -146,17 +147,16 @@ def render_proposals(proposals: list[dict], full: bool) -> str:
     if recurring:
         lines.append(f"  ⚠ 같은 대상에 {RECURRING_THRESHOLD}건 이상 쌓인 미반영 — 다음 태스크 전에 반영을 권합니다")
         for key, items in recurring.items():
-            tasks = " · ".join(sorted({p["task_id"] for p in items}))
-            lines.append(f"     {key:<24} ×{len(items)}   {tasks}")
+            tasks = " · ".join(sorted({display_text(p["task_id"], 20) for p in items}))
+            lines.append(f"     {display_text(key, 40):<24} ×{len(items)}   {tasks}")
 
     if full:
         pending = [p for p in proposals if p["status"] == "pending"]
         if pending:
             lines.append("")
             for p in pending:
-                change = str(p["change"]).replace("\n", " ")
-                lines.append(f"  {p['task_id']} #{p['index']}  [{p['key']}]")
-                lines.append(f"     {change[:150]}{'…' if len(change) > 150 else ''}")
+                lines.append(f"  {display_text(p['task_id'], 20)} #{p['index']}  [{display_text(p['key'], 40)}]")
+                lines.append(f"     {display_text(p['change'])}")
     elif count["pending"]:
         lines.append("  전체 목록: python scripts/wf_status.py --proposals")
     return "\n".join(lines)
