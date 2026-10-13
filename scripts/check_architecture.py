@@ -45,7 +45,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _utils import constraints_path, load_constraints, repo_root  # noqa: E402
+from _utils import (  # noqa: E402
+    constraints_path,
+    load_constraints,
+    load_json,
+    repo_root,
+    tasks_json_path,
+)
 
 #: forbidden_pattern 은 forbidden_import 와 동작이 같다. 이름만 다른 이유는,
 #: 같은 메커니즘(줄 단위 정규식)을 import 가 아닌 것 — 색상 리터럴, 매직 치수 —
@@ -179,6 +185,35 @@ def check_one(constraint: dict, root: Path, limit: set[str] | None) -> tuple[lis
     return violations, len(files)
 
 
+def task_statuses() -> dict[str, str]:
+    """tasks.json 의 id → status. 없으면 빈 dict."""
+    data, err = load_json(tasks_json_path())
+    if err or not isinstance(data, list):
+        return {}
+    return {t.get("id"): str(t.get("status", "")) for t in data if isinstance(t, dict)}
+
+
+def overdue_promotions(constraints: list[dict]) -> list[dict]:
+    """승격 기한이 지난 warn 제약.
+
+    warn 은 대개 '지금 켜면 기존 코드가 막히니 일단 경고로' 라는 임시 상태다. 그 임시가
+    언제 끝나는지를 적어두지 않으면 영원히 warn 으로 남는다 — 실사용에서 디자인 제약
+    3건이 'TASK-003 이후 error 로 승격' 하기로 했다가 다섯 태스크가 지나도록 warn 이었고,
+    그 사이 새 화면이 같은 위반을 다시 들여왔다.
+
+    promote_after 에 적힌 태스크가 done 인데 아직 warn 이면 기한이 지난 것이다.
+    """
+    status = task_statuses()
+    out = []
+    for c in constraints:
+        after = c.get("promote_after")
+        if not after or str(c.get("severity", "error")).lower() == "error":
+            continue
+        if status.get(after) == "done":
+            out.append({"id": c.get("id", "?"), "promote_after": after})
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--json", action="store_true", help="JSON 으로 출력")
@@ -240,11 +275,14 @@ def main() -> int:
             }
         )
 
+    overdue = overdue_promotions(constraints) if limit is None else []
+
     if args.json:
         print(
             json.dumps(
                 {
                     "status": "fail" if errors else ("no_target" if no_target else "pass"),
+                    "overdue_promotions": overdue,
                     "error_count": errors,
                     "warn_count": warns,
                     "no_target": no_target,
@@ -291,9 +329,16 @@ def main() -> int:
             "  이 제약들은 통과한 것이 아니라 검사되지 않았습니다.\n"
             "  Phase 4 보고에 '위반 0건' 이라고 쓰지 마세요 — glob 을 먼저 고칩니다."
         )
+    if overdue:
+        names = ", ".join(f"{o['id']}({o['promote_after']} 완료)" for o in overdue)
+        print(
+            f"⚠ 승격 기한이 지난 warn 제약 {len(overdue)}건: {names}\n"
+            "  promote_after 의 태스크가 끝났습니다. severity 를 error 로 올리고 ADR 로 남기거나,\n"
+            "  아직 올릴 수 없다면 promote_after 를 다시 정하세요."
+        )
     if warns:
         print(f"경고 {warns}건{scope}. 진행은 가능합니다.")
-    if not no_target and not warns:
+    if not no_target and not warns and not overdue:
         print(f"제약 {len(constraints)}건 모두 통과{scope} — 파일 {total_files}개 검사")
     return 0
 

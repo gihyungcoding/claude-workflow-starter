@@ -16,6 +16,11 @@
 #   error   Phase 4 가 status: FAIL 로 판정한다 (다음 Phase 진입 불가)
 #   warn    경고만 남기고 진행한다
 #
+# promote_after  (warn 일 때) 이 태스크가 끝나면 error 로 올린다
+#   warn 은 대개 "지금 켜면 기존 코드가 막히니 일단 경고로" 라는 임시 상태다. 언제 끝나는지
+#   적어두지 않으면 영원히 warn 으로 남는다. 적어두면 그 태스크가 done 이 된 뒤
+#   check_architecture.py 가 "승격 기한 지남" 을 알린다.
+#
 # paths 는 glob 이다 (** 지원). pattern 은 파이썬 정규식이며 줄 단위로 매칭한다.
 # exclude_paths 로 정본 파일을 뺀다 — 디자인 토큰 파일은 색상 리터럴로 가득한 것이
 # 정상이므로, 그것을 위반으로 세면 규칙 자체가 성립하지 않는다.
@@ -68,7 +73,8 @@ constraints: []
 #       type: forbidden_pattern
 #       paths: ["frontend/src/**/*.tsx", "frontend/src/**/*.ts"]
 #       pattern: "createTheme\\(\\s*\\)"      # MUI. 다른 라이브러리는 그에 맞게
-#     severity: error
+#     severity: warn                # 테마를 채우는 태스크가 끝나기 전에는 기존 코드가 걸린다
+#     promote_after: TASK-003       # 그 태스크가 끝나면 error 로
 #
 #   - id: DESIGN-002
 #     rule: "색상 리터럴은 디자인 토큰 파일에만 둔다"

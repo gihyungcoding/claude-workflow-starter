@@ -129,6 +129,7 @@ Plan의 `architecture_refs.constraints_applied` 에 적힌 제약이 특히 관�
 | `severity: warn` 위반 | `status: WARN` 후보. 사용자에게 보여준다 |
 | **`no_target` 에 제약 ID 가 있음** | **`status: FAIL`** — glob 이 실제 경로와 어긋났다 |
 | `DESIGN-*` 위반 | 아키텍처 제약과 동일하게 판정한다 (`severity` 를 따른다) |
+| `overdue_promotions` 가 있음 | 판정에 영향 없음. **HITL#3 요약에 반드시 보여준다** — 승격할지는 사람이 정한다 |
 | 제약 파일 없음 | 건너뛴다 (아직 정의하지 않은 것이지 위반이 아니다) |
 
 `no_target` 이 왜 FAIL 인가: 그 제약은 **아무 파일도 검사하지 않았다.** 출력에는
