@@ -22,6 +22,7 @@ title: "매장 검색 API에 권한 필터 추가"
 phase: "2a"
 phase_name: "Phase 2a - Scenario Design"
 status: ACTIVE                  # ACTIVE | BLOCKED | DONE
+track: standard                 # standard | light — estimate ≤ 8h 면 light (→ wf-orchestrator)
 created_at: 2026-09-01
 last_updated: 2026-09-01
 

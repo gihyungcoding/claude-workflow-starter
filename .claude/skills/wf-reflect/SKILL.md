@@ -206,6 +206,9 @@ python3 scripts/wf_status.py --proposals
 Phase 1~5를 한 장으로 정리해 **Artifact로 발행**한다. 터미널 스크롤백에만 남기지 않는다 —
 회고는 나중에 다시 볼 자료다.
 
+**`track: light` 면 이 Step 을 건너뛴다.** REFLECT JSON 과 HITL#4 요약으로 충분하다
+(→ `wf-orchestrator` 「경량 경로」).
+
 담을 것: 태스크 개요 / Phase별 진행과 재시도 / 변경 파일 / 테스트·검증 결과 /
 KPT / 규칙 개선안.
 

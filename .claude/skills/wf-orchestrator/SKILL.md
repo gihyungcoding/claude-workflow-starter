@@ -138,9 +138,40 @@ Phase 1이 설계할 때 계층 배치의 기준으로 삼을 문서가 없다�
    REPO_ROOT="$(git rev-parse --show-toplevel)"
    mkdir -p "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints"/{phase1,phase2a,phase2b,phase3,phase4,phase5}
    ```
-4. `activeContext.md` · `progress.md` 작성 (→ `docs/workflow/memory-bank-spec.md`)
+4. `activeContext.md` · `progress.md` 작성 (→ `docs/workflow/memory-bank-spec.md`).
+   **`track` 을 정해 기록한다** — 아래 「경량 경로」
 5. 작업 브랜치 생성 — `feature/task-<번호>-<짧은-slug>`
 6. 커밋 후 `wf-plan` 스킬로 넘긴다
+
+---
+
+## 경량 경로
+
+**`meta.estimate.value ≤ 8` 이면 `track: light`**, 아니면 `standard`. 시작할 때 한 번 정하고
+`activeContext.md` 에 적는다. 사용자가 바꾸자고 하면 따른다.
+
+### 줄이지 않는 것
+
+**검증은 하나도 줄이지 않는다.** 실사용에서 5~6시간짜리 태스크 셋이 모두 Phase 4 에서
+결함이 잡혔다 — 4건, 3회 재시도, 1건. 작다고 안전하지 않다.
+
+| 그대로 | 이유 |
+|---|---|
+| 6 Phase · HITL 4회 | 절대 규칙 1 |
+| Phase 1 의 `design.*` · `target_files` | 2a 검증자(V4·V8·V11)가 이것을 읽는다 |
+| 경계값 시나리오(coverage-policy §2-1) | 작은 태스크도 입력은 받는다 |
+| Phase 4 전체 — 테스트·제약·코드 리뷰·화면 확인 | 결함을 잡는 단계다 |
+
+### 줄이는 것 — 아무도 읽지 않는 비용만
+
+| Phase | standard | light |
+|---|---|---|
+| 1 | 완료 보고에 flows·target_files·AC 매핑 표 | **unresolved 와 AC 매핑만** |
+| 3 | 완료 보고 상세 | **테스트 수·린트·범위 이탈만** |
+| 5 | Phase 1~5 완료 리포트를 **Artifact 로 발행** | **생략** — REFLECT JSON 과 HITL#4 요약으로 |
+| 5 | KPT 각 2~3건 | **각 1건 이상** — 실제로 일어난 것만 |
+
+light 에서 아낀 만큼 Phase 4 에 쓴다.
 
 ---
 

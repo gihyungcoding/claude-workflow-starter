@@ -107,6 +107,7 @@ mkdir -p "$REPO_ROOT/memory-bank/$1/checkpoints"/{phase1,phase2a,phase2b,phase3,
 
 `activeContext.md` 와 `progress.md` 를 작성한다 (→ `docs/workflow/memory-bank-spec.md` §1, §2).
 태스크의 `title`, `primary_category`, `acceptance_criteria` 를 옮겨 담는다.
+`meta.estimate.value ≤ 8` 이면 `track: light`, 아니면 `standard` 를 적는다 (→ `wf-orchestrator` 「경량 경로」).
 
 ### 6. 브랜치
 

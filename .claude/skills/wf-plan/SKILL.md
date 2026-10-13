@@ -234,6 +234,8 @@ Refs: TASK-001"
 
 ### Step 6 — 보고
 
+`track: light` 면 unresolved 와 AC 매핑만 보고한다 (→ `wf-orchestrator` 「경량 경로」).
+
 ```
 Phase 1 완료 — TASK-001
 

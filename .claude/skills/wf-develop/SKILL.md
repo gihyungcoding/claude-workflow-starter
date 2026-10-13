@@ -163,6 +163,8 @@ Refs: TASK-001"
 
 ### Step 7 — 보고
 
+`track: light` 면 테스트 수·린트·범위 이탈만 보고한다 (→ `wf-orchestrator` 「경량 경로」).
+
 ```
 Phase 3 완료 — TASK-001
 
