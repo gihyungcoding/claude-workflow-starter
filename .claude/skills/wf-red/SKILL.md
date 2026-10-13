@@ -109,6 +109,27 @@ def test_sc01_담당_매장이_검색된다():
 
 통과한 테스트가 있으면 단언을 강화하거나, 그 기능이 이미 있는지 확인한다.
 
+#### 예외 — 부정형 회귀 시나리오는 already_passing 일 수 있다
+
+일부 시나리오는 "이 태스크가 바꾸지 않는 기존 동작이 계속된다"를 검증하는
+부정형 회귀(예: "목록 응답에는 새 필드가 없다", "기존 404는 그대로 반환된다")다.
+이런 시나리오는 **본질적으로 Red를 만들 수 없다** — 아직 아무것도 구현하지 않은
+시점에도 이미 참이기 때문이다. 이것은 결함이 아니라 시나리오의 성격이다.
+
+억지로 실패시키려고 assertion을 조작하거나(예: 존재하지 않는 필드에 대한 오탐을
+유도) 기존 동작을 일부러 깨뜨리지 않는다. 대신:
+
+- `red_scenarios[].status` 를 `"already_passing"` 으로 적는다 (Step 5)
+- 왜 이 시나리오가 구조적으로 Red일 수 없는지 `note` 에 남긴다
+- HITL#2 요약(Step 6)에서 어떤 시나리오가 already_passing인지 **숨기지 않고**
+  명시한다 — 승인자가 "이건 왜 안 빨간불이지?"를 스스로 묻게 하지 않는다
+
+`EXIT GATE`의 "테스트 실행 결과가 실제 실패"는 여전히 유효하다 — 시나리오 **전체**가
+아니라, `already_passing`으로 표시되지 않은 시나리오에 대해서만 적용된다.
+`already_passing`이 하나도 없는데 통과한 테스트가 있으면 그것은 이 예외가 아니라
+위 표의 "단언이 약하다" 쪽이다 — 구분해서 판단한다.
+
+
 #### 컴파일 언어 (Java · Kotlin · Go · Rust · C# · TypeScript)
 
 동적 언어에서는 `NameError` 가 Red 다 — 호출 대상이 없어도 테스트가 **실행은 된다.**
@@ -168,11 +189,16 @@ jq -r '.scenarios[].id' workflow_design/05_scenario/SCENARIO_TASK-001.json
   "test_file": "tests/api/test_store_search.py",
   "red_scenarios": [
     { "scenario_id": "SC-01", "test_function": "test_sc01_담당_매장이_검색된다",
-      "status": "red", "failure": "NameError: name 'search_stores' is not defined" }
+      "status": "red", "failure": "NameError: name 'search_stores' is not defined" },
+    //  부정형 회귀 시나리오 — 위 "예외" 절 참고. status는 "red"가 아니라
+    //  "already_passing"이고, failure는 null, note에 이유를 적는다
+    { "scenario_id": "SC-02", "test_function": "test_sc02_기존_전체_조회는_그대로_동작한다",
+      "status": "already_passing", "failure": null,
+      "note": "이 태스크가 바꾸지 않는 기존 동작 — 구현 전에도 통과, 구조적으로 Red 불가" }
   ],
   "red_result": {
     "command": "pytest tests/api/test_store_search.py -v",
-    "total": 6, "failed": 6, "passed": 0,
+    "total": 6, "failed": 5, "passed": 1,
     "existing_tests_still_passing": true
   },
   "inventory_check": {
@@ -199,16 +225,20 @@ jq -r '.scenarios[].id' workflow_design/05_scenario/SCENARIO_TASK-001.json
 ```
 Phase 2b — TASK-001
 
-테스트 6개 작성 → 6개 전부 실패 (기대한 상태)
+테스트 6개 작성 → 5개 실패(Red) + 1개 already_passing
   tests/api/test_store_search.py
 
-  test_sc01_담당_매장이_검색된다     NameError: search_stores
-  test_sc02_담당하지_않는_매장은_403  NameError: search_stores
+  test_sc01_담당_매장이_검색된다           NameError: search_stores
+  test_sc02_담당하지_않는_매장은_403        NameError: search_stores
+  test_sc06_기존_전체_조회는_그대로_동작한다  already_passing — 이 태스크가 안 바꾸는 경로
   ...
 
 인벤토리  시나리오 6 == 테스트 함수 6 ✓
 기존 테스트 12개 계속 통과 ✓
 ```
+
+`already_passing` 이 하나라도 있으면 **왜 그런지를 이 요약에서 감추지 않는다** —
+승인자가 "왜 이것만 초록불이지"를 나중에 되묻지 않도록 여기서 밝힌다.
 
 `AskUserQuestion`:
 
