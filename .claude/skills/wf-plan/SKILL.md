@@ -97,7 +97,8 @@ cat docs/product/design.md docs/product/design-tokens.css 2>/dev/null
 PLAN 의 `unresolved` 에 적는다. Phase 4 의 `DESIGN-*` 가 그것을 검사한다.
 
 제목만 보고 관련 있어 보이는 ADR은 본문을 읽는다. "왜 이 라이브러리를 쓰는가"가
-설계 선택을 바꾼다.
+설계 선택을 바꾼다. **「검사 가능한 제약」 절에서 이 태스크를 지목하는 항목**이 있으면
+`target_files` 에 반영한다 (→ `references/design-checks.md` §4).
 
 ```bash
 python3 scripts/check_architecture.py    # 지금 걸리는 제약이 있는지 미리 본다
@@ -137,6 +138,9 @@ Foundation 문서가 아직 없으면(빈 프로젝트) 이 단계를 건너뛰�
   필요할 수 있다. 이 확인을 생략하면 Phase 2a 에서야 필드가 없다는 걸 알게 되고,
   그때는 시나리오까지 다시 써야 한다
 
+- 웹폰트·라이브러리 프리셋처럼 **값을 지정해 요청하는 것**은 지정하기 전에 실제 사용처의
+  현재 값을 확인한다 (→ `references/design-checks.md` §2)
+
 조사 결과를 `codebase_analysis` 에 기록한다. 찾지 못한 것은 `unresolved` 에 남긴다 —
 못 찾았다는 사실이 다음 Phase에 필요한 정보다.
 
@@ -154,6 +158,10 @@ Foundation 문서가 아직 없으면(빈 프로젝트) 이 단계를 건너뛰�
 route 와 그 근거는 PLAN 에 있으므로 따로 저장하지 않는다.
 
 ### Step 4 — 구조 정규화
+
+**두 가지를 먼저 확인한다** (→ `references/design-checks.md` §1·§3):
+route 가 Frontend 이면 화면 간 이동을 flow 로 적었는가, 타입을 넓히는 변경이 있으면
+새로 열린 입력 범위를 `unresolved` 에 적었는가.
 
 ```jsonc
 {
