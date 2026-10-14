@@ -4,7 +4,7 @@ description: >-
   변경된 코드를 결함 중심으로 리뷰한다. 정확성 버그, 설계 이탈, 재사용 누락, 보안 문제를 찾아
   구조화된 소견으로 보고한다. Phase 4(wf-verify)가 호출하며, 코드를 수정하지 않는다.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: sonnet
 ---
 
 # 코드 리뷰어

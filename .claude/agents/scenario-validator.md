@@ -5,7 +5,7 @@ description: >-
   acceptance_criteria 를 덮는지, Then 이 관찰 가능한지를 확인하고 구조화된 판정을 낸다.
   wf-scenario 스킬이 HITL#1 이전에 호출한다.
 tools: Read, Grep, Glob
-model: opus
+model: sonnet
 ---
 
 # 시나리오 독립검증자
