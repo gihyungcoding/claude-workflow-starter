@@ -226,8 +226,24 @@ git cherry-pick <sha>
 │   ├── verify_workflow_artifacts.py
 │   └── hooks/                      session_start, check_artifact_paths,
 │                                   check_secrets, check_symlinks, check_uncommitted
+├── tests/                          scripts/ 의 테스트 (스타터 전용 — 프로젝트로 복사하지 않는다)
+├── .github/workflows/ci.yml        테스트 + 스타터 자체 점검 (위와 같은 이유로 복사하지 않는다)
 ├── memory-bank/                    태스크별 상태 (저장소 루트여야 한다)
 └── workflow_design/                Phase 산출물
     ├── 02_tasks/  04_plan/  05_scenario/
     └── 06_dev/    07_verify/ 08_reflect/
 ```
+
+---
+
+## 스타터를 고칠 때
+
+게이트 스크립트는 "검사하지 않은 것을 통과로 보고하지 않는다"가 존재 이유라서, 스크립트를 고치면
+테스트를 돌린다. 표준 라이브러리만 쓰므로 설치할 것이 없다.
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+테스트는 임시 git 저장소를 만들고 스크립트를 서브프로세스로 실행한다. 새 게이트를 추가하면 조건을
+하나씩 깨뜨리는 테스트를 함께 쓴다 — 통과하는 경로만 확인하는 테스트는 게이트가 열려 있어도 통과한다.
