@@ -224,6 +224,7 @@ git cherry-pick <sha>
 │   ├── check_architecture.py       constraints.yaml 위반 검사
 │   ├── check_freshness.py          승인한 코드가 그대로인가
 │   ├── check_root_causes.py        Phase 4 FAIL 의 뿌리·변종 기록 검사
+│   ├── collect_task_history.py     Phase 5 회고 입력 — 라운드·되돌아감·결정 집계
 │   ├── ship_preflight.py           머지 전 종합 검사
 │   ├── verify_workflow_artifacts.py
 │   └── hooks/                      session_start, check_artifact_paths,
