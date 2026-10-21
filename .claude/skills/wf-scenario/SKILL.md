@@ -157,7 +157,8 @@ TASK-001 의 시나리오를 검증해주세요.
 - 3회를 넘으면 Phase 1 롤백을 사용자에게 제안한다 (→ `docs/workflow/reject-state-machine.md`)
 
 **Phase 4 FAIL 로 들어왔다면** `VERIFY_<ID>.json` 의 `root_causes` 에서 `probe: reproduced`
-변종을 **전부** 이번에 시나리오로 가져온다. 증상 하나만 추가해 돌려보내면 같은 뿌리의 다음
+변종과 `not_probed` 변종을 **전부** 이번에 시나리오로 가져온다(`not_probed` 는 Phase 3 의
+테스트가 프로브한다). 증상 하나만 추가해 돌려보내면 같은 뿌리의 다음
 변종 때문에 이 단계를 다시 거친다 (→ `wf-verify/references/root-cause-sweep.md`).
 
 `CP-2.2` 를 갱신한다 — 검증 결과 원문은 `VALIDATION_<ID>.json` 에 있으므로 `summary` 한 줄과

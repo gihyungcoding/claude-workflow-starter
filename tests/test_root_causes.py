@@ -298,6 +298,110 @@ class CarriedForwardTest(ProjectTestCase):
         self.assertEqual(self.check().returncode, 0)
 
 
+class UnprobedFollowUpTest(ProjectTestCase):
+    """이전 라운드에서 프로브하지 않은 변종은 다음 라운드에 프로브되어 있어야 한다.
+
+    실제 사례 (TASK-009): 3차에 'password 의 짝 없는 서로게이트' 를 '영향 없다고 판단' 하고
+    not_probed 로 넘겼고, 그것이 4차 FAIL 이었다.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.round1 = {
+            "task_id": TID, "status": "FAIL",
+            "root_causes": [root_cause(variants=[
+                variant(CASE_A),
+                variant(CASE_B, "predicted", "not_probed", reason="영향 없다고 판단")])],
+        }
+        self.project.write_json(VERIFY, self.round1)
+        self.project.commit("chore(workflow): 1차 FAIL")
+
+    def next_round(self, probe: str, **extra) -> None:
+        """Phase 2b·3 을 거쳐(소스 변경) 다음 라운드의 VERIFY 를 쓴다."""
+        self.project.write("src/fix.py", "fixed = True\n")
+        self.project.commit("fix: 1차 결함 수정")
+        self.write_current(probe, **extra)
+
+    def write_current(self, probe: str, status: str = "FAIL", **extra) -> None:
+        data = copy.deepcopy(self.round1)
+        data["status"] = status
+        b = data["root_causes"][0]["variants"][1]
+        b["probe"] = probe
+        b.pop("reason", None) if probe != "not_probed" else None
+        b.update(extra)
+        self.project.write_json(VERIFY, data)
+
+    def check(self):
+        return self.project.run("check_root_causes.py", "--task-id", TID)
+
+    def test_still_not_probed_in_the_next_round_is_a_violation(self):
+        self.next_round("not_probed", reason="여전히 영향 없다고 판단")
+        out = self.check()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("이전 라운드에서 프로브하지 않은", out.stdout)
+        self.assertIn(CASE_B, out.stdout)
+
+    def test_not_reproduced_needs_the_test_that_shows_it(self):
+        self.next_round("not_reproduced")
+        out = self.check()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("evidence", out.stdout)
+
+    def test_not_reproduced_with_a_test_is_ok(self):
+        self.next_round("not_reproduced", evidence="AuthApiTest.passwordLoneSurrogateRejected")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_reproduced_in_the_next_round_is_ok_while_failing(self):
+        self.next_round("reproduced")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_same_round_recommit_is_not_a_new_round(self):
+        # 소스 변경 없이 VERIFY 만 다시 커밋했다 — 아직 같은 라운드다
+        self.write_current("not_probed", reason="환경 없음")
+        self.project.commit("chore(workflow): VERIFY 보완")
+        self.write_current("not_probed", reason="환경 없음")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_workflow_artifacts_alone_do_not_start_a_new_round(self):
+        self.project.write("memory-bank/TASK-001/activeContext.md", "x\n")
+        self.project.write("workflow_design/05_scenario/SCENARIO_TASK-001.md", "x\n")
+        self.project.commit("chore(workflow): 산출물만")
+        self.write_current("not_probed", reason="환경 없음")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_source_brought_in_by_merging_the_base_branch_is_not_a_new_round(self):
+        # 같은 라운드 중에 기준 브랜치를 병합해도 이 태스크의 라운드가 넘어간 것이 아니다
+        p = self.project
+        p.git("switch", "-q", "-c", "feature/task-001")
+        p.write_json("workflow_design/07_verify/marker.json", {})  # 브랜치 고유 커밋
+        p.commit("chore: on feature")
+        p.git("switch", "-q", "main")
+        p.write("src/other_team.py", "x = 1\n")
+        p.commit("feat: 다른 태스크")
+        p.git("switch", "-q", "feature/task-001")
+        p.git("merge", "-q", "--no-ff", "-m", "merge main", "main")
+        self.write_current("not_probed", reason="환경 없음")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_new_not_probed_variant_in_this_round_is_allowed(self):
+        self.next_round("reproduced")
+        data = json.loads(self.project.path(VERIFY).read_text(encoding="utf-8"))
+        data["root_causes"][0]["variants"].append(
+            variant("이번 라운드에 새로 예측한 변종", "predicted", "not_probed", reason="Docker 꺼짐"))
+        self.project.write_json(VERIFY, data)
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_pass_still_requires_the_followed_up_variant_to_be_settled(self):
+        self.next_round("not_probed", reason="x")
+        data = json.loads(self.project.path(VERIFY).read_text(encoding="utf-8"))
+        data["status"] = "PASS"
+        data["root_causes"][0]["variants"][0].update(resolved=True, evidence="t")
+        self.project.write_json(VERIFY, data)
+        out = self.check()
+        self.assertEqual(out.returncode, 1)
+        self.assertIn(CASE_B, out.stdout)
+
+
 class DocExamplesTest(unittest.TestCase):
     """문서에 실린 예시가 검증기와 어긋나지 않는다 — 리뷰어가 문서대로 써도 막히면 안 된다."""
 
@@ -337,6 +441,24 @@ class DocExamplesTest(unittest.TestCase):
         ):
             with self.subTest(doc=rel):
                 self.assertIn("root-cause-sweep", self.read(rel))
+
+    def test_the_section_the_script_points_at_exists(self):
+        doc = self.read(".claude/skills/wf-verify/references/root-cause-sweep.md")
+        self.assertIn("「뿌리를 고친다는 것」", (SCRIPTS / "check_root_causes.py").read_text(encoding="utf-8"))
+        self.assertIn("## 뿌리를 고친다는 것", doc)
+
+    def test_both_gaps_are_closed_in_every_role_that_acts_on_them(self):
+        # 구멍 1: 판단으로 not_probed 를 넘김 / 구멍 2: 위치마다 따로 고침
+        for rel, needles in (
+            (".claude/agents/code-reviewer.md", ("판단으로 건너뛰지 않는다", "수정 위치를 본다", "공통 지점")),
+            (".claude/skills/wf-develop/SKILL.md", ("테스트가 프로브다", "공통 지점", "sites")),
+            (".claude/skills/wf-scenario/SKILL.md", ("not_probed",)),
+            (".claude/skills/wf-verify/references/root-cause-sweep.md", ("판단으로 건너뛰지 않는다", "공통 지점", "프로브 미루기")),
+        ):
+            text = self.read(rel)
+            for needle in needles:
+                with self.subTest(doc=rel, needle=needle):
+                    self.assertIn(needle, text)
 
     def test_wf_verify_gate_runs_the_script_that_exists(self):
         text = self.read(".claude/skills/wf-verify/SKILL.md")
