@@ -49,6 +49,15 @@ cat workflow_design/04_plan/PLAN_TASK-001.json         # 어디를 고치는가,
 
 `human_review.approved` 가 `true` 가 아니면 중단한다.
 
+**Phase 4 FAIL 로 돌아왔다면** `VERIFY_<ID>.json` 의 `root_causes` 를 먼저 읽는다
+(→ `wf-verify/references/root-cause-sweep.md`).
+
+- 증상 하나가 아니라 **뿌리**를 고친다. 증상만 고치면 같은 뿌리의 다음 변종 때문에 다시 돌아온다
+- `probe: reproduced` 변종마다 **테스트를 먼저 실패시킨 뒤** 고친다 (Red → Green)
+- 변종이 시나리오에 없는 동작이라 테스트를 쓸 수 없다면 여기서 만들지 않는다. Phase 2a 로
+  돌아가되 **변종 전부를 한 번에** 가져간다 (시나리오에 없는 기능 추가는 금지다)
+- 고친 내용은 `DEV_<ID>.json` 의 `rollback_fixes` 에 `{root_cause, variants, tests}` 로 남긴다
+
 구현 순서나 재사용 대상을 정했으면 `CP-3.4` 의 `decisions` 에 남긴다.
 
 ### Step 2 — 최소 구현
