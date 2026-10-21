@@ -8,10 +8,16 @@
 from __future__ import annotations
 
 import json
+import sys
+import unicodedata
 import unittest
 from pathlib import Path
 
-from helpers import ProjectTestCase
+from helpers import SCRIPTS, ProjectTestCase
+
+sys.path.insert(0, str(SCRIPTS / "hooks"))
+sys.path.insert(0, str(SCRIPTS))
+import protect_gates  # noqa: E402
 
 HOOK = "hooks/protect_gates.py"
 STARTER_ROOT = Path(__file__).resolve().parent.parent
@@ -172,6 +178,48 @@ class ProtectGatesTest(ProjectTestCase):
         self.task("TASK-002", phase="4")
         self.assertAsks(CONSTRAINTS, "TASK-002")
 
+    # --- 같은 파일을 다른 표기로 가리켜도 보호된다 ---
+    # macOS(APFS)·Windows 는 대소문자를 구분하지 않는다. resolve() 는 표기를 그대로 남기므로
+    # 문자열을 그대로 비교하면 `DOCS/Constraints.YAML` 로 보호를 우회할 수 있다.
+    # 대소문자를 구분하는 파일시스템(Linux CI)에서는 다른 경로라 해당 없음 — 건너뛴다.
+
+    def _fs_ignores_case(self) -> bool:
+        probe = self.project.write("CaseProbe.tmp", "x")
+        try:
+            return self.project.path("caseprobe.tmp").exists()
+        finally:
+            probe.unlink()
+
+    def test_case_variant_of_constraints_path_still_asks(self):
+        if not self._fs_ignores_case():
+            self.skipTest("대소문자를 구분하는 파일시스템")
+        self.task("TASK-001", phase="3")
+        self.assertAsks("DOCS/Architecture/CONSTRAINTS.YAML", "ADR")
+
+    def test_case_variant_of_lint_config_still_asks(self):
+        if not self._fs_ignores_case():
+            self.skipTest("대소문자를 구분하는 파일시스템")
+        self.task("TASK-001", phase="3")
+        self.assertAsks("frontend/ESLINT.CONFIG.JS")
+
+    def test_case_variant_of_approved_test_still_asks(self):
+        if not self._fs_ignores_case():
+            self.skipTest("대소문자를 구분하는 파일시스템")
+        self.task("TASK-001", phase="3")
+        self.red_tests("TASK-001", [APPROVED_TEST])
+        self.assertAsks(APPROVED_TEST.upper().replace("/SRC/", "/src/"), "HITL#2")
+
+    def test_unicode_normalization_variant_of_approved_test_still_asks(self):
+        # APFS 는 NFC/NFD 를 같은 이름으로 본다. Linux 에서는 다른 파일이라 건너뛴다.
+        nfc = "backend/src/test/java/" + unicodedata.normalize("NFC", "한글Test.java")
+        nfd = "backend/src/test/java/" + unicodedata.normalize("NFD", "한글Test.java")
+        self.project.write(nfc, "x\n")
+        if not self.project.path(nfd).exists():
+            self.skipTest("유니코드 정규화를 구분하는 파일시스템")
+        self.task("TASK-001", phase="3")
+        self.red_tests("TASK-001", [nfc])
+        self.assertAsks(nfd, "HITL#2")
+
     # --- 훅은 작업을 막는 쪽으로 고장나면 안 된다 ---
 
     def test_unreadable_payload_is_silent(self):
@@ -207,6 +255,38 @@ class ProtectGatesTest(ProjectTestCase):
         self.task("TASK-001", phase="3")
         code, decision, _ = self.hook(CONSTRAINTS, key="notebook_path")
         self.assertEqual(decision["permissionDecision"], "ask")
+
+
+class PathKeyTest(unittest.TestCase):
+    """경로 비교 키 — 파일시스템과 무관하게 항상 검증되는 부분."""
+
+    def test_case_is_folded(self):
+        self.assertEqual(protect_gates.path_key("Docs/Architecture/Constraints.YAML"),
+                         protect_gates.path_key("docs/architecture/constraints.yaml"))
+
+    def test_unicode_normalization_is_folded(self):
+        nfc = unicodedata.normalize("NFC", "한글.java")
+        nfd = unicodedata.normalize("NFD", "한글.java")
+        self.assertNotEqual(nfc, nfd)
+        self.assertEqual(protect_gates.path_key(nfc), protect_gates.path_key(nfd))
+
+    def test_different_names_stay_different(self):
+        self.assertNotEqual(protect_gates.path_key("a/b.py"), protect_gates.path_key("a/c.py"))
+
+    def test_gate_config_match_ignores_case_but_not_build_files(self):
+        for name in ("ESLint.Config.JS", "TSConfig.App.json", ".PRETTIERRC", "Biome.JSON", "Checkstyle-Main.XML"):
+            with self.subTest(name=name):
+                self.assertTrue(protect_gates.matches_gate_config(name))
+        for name in ("build.gradle", "package.json", "vite.config.ts", "eslint-notes.md"):
+            with self.subTest(name=name):
+                self.assertFalse(protect_gates.matches_gate_config(name))
+
+    def test_approved_test_match_ignores_case_and_normalization(self):
+        approved = {unicodedata.normalize("NFC", "backend/src/test/한글Test.java"), "backend/src/test/dir/"}
+        self.assertTrue(protect_gates.is_approved_test(
+            unicodedata.normalize("NFD", "BACKEND/src/test/한글test.java"), approved))
+        self.assertTrue(protect_gates.is_approved_test("Backend/SRC/test/DIR/deep/XTest.java", approved))
+        self.assertFalse(protect_gates.is_approved_test("backend/src/test/other.java", approved))
 
 
 class ProtectGatesWiringTest(unittest.TestCase):

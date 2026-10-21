@@ -40,6 +40,8 @@
 - 훅 자신과 게이트 스크립트(scripts/)는 보호하지 않는다. 스타터를 유지보수하는 일이
   바로 그 파일을 고치는 일이다.
 - 어떤 태스크가 어느 Phase 인지는 activeContext.md 의 기록을 믿는다.
+- 심볼릭 링크는 resolve() 로 실제 대상을 따라가 잡지만, 하드링크는 같은 파일이어도
+  다른 경로 이름이라 보지 못한다.
 
 exit code 는 항상 0 이다. 훅이 고장 나서 작업을 막아서는 안 된다.
 """
@@ -49,6 +51,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import sys
+import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -79,6 +82,23 @@ GATE_CONFIG_PATTERNS = (
 )
 
 
+def path_key(value: str) -> str:
+    """경로 비교용 키. 유니코드 정규화(NFC) 후 대소문자를 접는다.
+
+    macOS(APFS)·Windows 기본 설정은 대소문자를 구분하지 않고, APFS 는 유니코드 정규화
+    형태(NFC/NFD)도 구분하지 않는다. `Docs/Architecture/Constraints.YAML` 은 같은 파일인데
+    resolve() 는 표기를 그대로 남기므로, 문자열 그대로 비교하면 보호를 우회할 수 있다.
+    대소문자를 구분하는 파일시스템에서는 다른 파일을 잘못 묻게 될 수 있다 — 불필요한 확인
+    한 번이 비용이고, 반대 방향의 실패는 보호가 뚫리는 것이라 보수적으로 접는다.
+    """
+    return unicodedata.normalize("NFC", value).casefold()
+
+
+def matches_gate_config(name: str) -> bool:
+    key = path_key(name)
+    return any(fnmatch.fnmatchcase(key, path_key(pattern)) for pattern in GATE_CONFIG_PATTERNS)
+
+
 def guarded_tasks() -> list[dict]:
     return [t for t in list_tasks() if t["status"] == "ACTIVE" and t["phase"] in GUARDED_PHASES]
 
@@ -99,7 +119,12 @@ def approved_test_files(task_id: str) -> set[str]:
 
 def is_approved_test(rel: str, approved: set[str]) -> bool:
     # 항목이 '/' 로 끝나면 디렉터리로 본다
-    return any(rel == a or (a.endswith("/") and rel.startswith(a)) for a in approved)
+    key = path_key(rel)
+    for entry in approved:
+        a = path_key(entry)
+        if key == a or (a.endswith("/") and key.startswith(a)):
+            return True
+    return False
 
 
 def classify(rel: str, tasks: list[dict]) -> tuple[str, dict] | None:
@@ -110,11 +135,10 @@ def classify(rel: str, tasks: list[dict]) -> tuple[str, dict] | None:
     except ValueError:
         constraints_rel = "docs/architecture/constraints.yaml"
 
-    if rel == constraints_rel:
+    if path_key(rel) == path_key(constraints_rel):
         return "constraints", tasks[0]
 
-    name = rel.rsplit("/", 1)[-1]
-    if any(fnmatch.fnmatch(name, pattern) for pattern in GATE_CONFIG_PATTERNS):
+    if matches_gate_config(rel.rsplit("/", 1)[-1]):
         return "gate-config", tasks[0]
 
     for task in tasks:
