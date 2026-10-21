@@ -69,10 +69,16 @@ def iter_files(patterns: list[str], root: Path) -> list[Path]:
     """glob 패턴들에 해당하는 파일. 빌드 산출물은 제외한다."""
     found: list[Path] = []
     for pattern in patterns:
+        # 끝의 '**' 는 파이썬 3.12 까지는 디렉터리만, 3.13 부터는 파일도 돌려준다.
+        # 같은 제약이 버전에 따라 위반을 찾기도 놓치기도 하므로 '**/*' 로 통일한다.
+        if re.search(r"(^|/)\*\*$", pattern):
+            pattern += "/*"
         for path in root.glob(pattern):
             if not path.is_file():
                 continue
-            if SKIP_DIRS & set(path.parts):
+            # 저장소 기준 상대경로로 본다. 절대경로의 parts 를 보면 저장소가 build/ 나
+            # dist/ 같은 이름의 상위 폴더 아래에 있을 때 모든 파일이 건너뛰어진다.
+            if SKIP_DIRS & set(path.relative_to(root).parts):
                 continue
             found.append(path)
     return sorted(set(found))
