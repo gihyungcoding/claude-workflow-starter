@@ -402,6 +402,8 @@ def proposal_key(target: str) -> str:
     'A 또는 B' 처럼 둘을 지목하면 첫 번째를 쓴다.
     """
     text = str(target or "").strip()
+    # 'A 또는 B' 는 A 만 본다. 전체를 훑으면 뒤에 적힌 스킬 경로가 앞의 파일을 이긴다.
+    text = re.split(r"\s+(?:또는|혹은|및|or|and)\s+|\s*[,;]\s*", text, maxsplit=1)[0]
     m = re.search(r"\.claude/skills/([\w-]+)(?:/(SKILL\.md|references/[\w./-]+))?", text)
     if m:
         ref = m.group(2)
