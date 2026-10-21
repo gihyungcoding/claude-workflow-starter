@@ -225,7 +225,8 @@ git cherry-pick <sha>
 │   ├── ship_preflight.py           머지 전 종합 검사
 │   ├── verify_workflow_artifacts.py
 │   └── hooks/                      session_start, check_artifact_paths,
-│                                   check_secrets, check_symlinks, check_uncommitted
+│                                   check_secrets, check_symlinks, check_uncommitted,
+│                                   protect_gates
 ├── tests/                          scripts/ 의 테스트 (스타터 전용 — 프로젝트로 복사하지 않는다)
 ├── .github/workflows/ci.yml        테스트 + 스타터 자체 점검 (위와 같은 이유로 복사하지 않는다)
 ├── memory-bank/                    태스크별 상태 (저장소 루트여야 한다)
