@@ -109,7 +109,16 @@ def violations_for(rel: str) -> list[str]:
                         f"{sorted(ALLOWED_CP_DIRS)} 중 하나여야 한다. ({DOC_REF} §3)"
                     )
                 canonical = RETRY_SUFFIX_RE.sub("", filename)
-                if canonical not in ALLOWED_CP_FILENAMES:
+                if filename == ".gitkeep":
+                    # 허용하지 않는다 — phase 디렉터리는 빈 채로 존재할 이유가 없다.
+                    # 체크포인트를 저장할 때 mkdir -p 로 만들면 되고, 파일이 생기면 git 이 추적한다.
+                    problems.append(
+                        f"빈 phase 디렉터리를 커밋하려는 자리표시 파일이다: '{rel}' — "
+                        "미리 만들 필요가 없다. 체크포인트를 저장할 때 "
+                        "`mkdir -p \"$(dirname \"$CP\")\"` 로 만든다. "
+                        "(docs/workflow/checkpoint-template.md §4)"
+                    )
+                elif canonical not in ALLOWED_CP_FILENAMES:
                     problems.append(
                         f"체크포인트 파일명이 고정 목록에 없다: '{filename}' — "
                         f"자유 작명 금지. 허용 목록은 {DOC_REF} §3 참조."

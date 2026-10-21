@@ -10,9 +10,12 @@ import json
 import os
 import unittest
 
+from pathlib import Path
+
 from helpers import ProjectTestCase
 
 CHECK_PATHS = "hooks/check_artifact_paths.py"
+STARTER_ROOT = Path(__file__).resolve().parent.parent
 CHECK_SECRETS = "hooks/check_secrets.py"
 CHECK_SYMLINKS = "hooks/check_symlinks.py"
 CHECK_UNCOMMITTED = "hooks/check_uncommitted.py"
@@ -82,6 +85,34 @@ class ArtifactPathHookTest(ProjectTestCase):
 
     def test_unknown_checkpoint_phase_dir_is_denied(self):
         self.assertDenied("memory-bank/TASK-001/checkpoints/phase9/CP-2.2_canonical-scenarios.md")
+
+    def test_gitkeep_in_checkpoint_dir_is_denied_with_guidance(self):
+        # 빈 phase 디렉터리를 커밋하려고 넣는 자리표시 파일 — 허용하지 않는다.
+        # 허용하면 "빈 디렉터리가 필요하다"는 잘못된 전제가 굳는다.
+        # 대신 거부 사유가 왜 필요 없는지(저장 시 mkdir -p)를 알려줘야 한다.
+        out = self.hook("memory-bank/TASK-001/checkpoints/phase1/.gitkeep")
+        self.assertEqual(out.returncode, 2)
+        reason = json.loads(out.stdout.splitlines()[0])["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn("mkdir -p", reason)
+
+    def test_repo_scan_still_reports_committed_gitkeep(self):
+        self.project.write("memory-bank/TASK-001/checkpoints/phase1/.gitkeep")
+        self.project.commit("chore: placeholder")
+        out = self.project.run(CHECK_PATHS, "--all")
+        self.assertEqual(out.returncode, 1)
+        self.assertIn(".gitkeep", out.stdout)
+
+    def test_start_procedures_do_not_precreate_empty_phase_dirs(self):
+        # git 은 빈 디렉터리를 추적하지 못한다. 시작 절차가 빈 phase 디렉터리를 만들면
+        # 커밋하려는 에이전트가 .gitkeep 을 넣는다 (ticket-booking TASK-015).
+        # 체크포인트는 저장할 때 mkdir -p 로 만든다 (checkpoint-template.md §4).
+        for rel in (
+            ".claude/commands/wf-start.md",
+            ".claude/skills/wf-orchestrator/SKILL.md",
+        ):
+            text = (STARTER_ROOT / rel).read_text(encoding="utf-8")
+            with self.subTest(rel=rel):
+                self.assertNotIn("{phase1,", text)
 
     def test_unknown_docs_directory_is_denied(self):
         self.assertDenied("docs/random-stuff/note.md")

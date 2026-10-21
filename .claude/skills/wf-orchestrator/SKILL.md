@@ -67,7 +67,7 @@ Foundation 은 이 스킬이 관장하지 않는다. `/wf-init`, `/wf-feature`, 
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cat "$REPO_ROOT/memory-bank/<TASK-ID>/activeContext.md"
-ls "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/
+ls "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/ 2>/dev/null
 ```
 
 판정 규칙:
@@ -137,8 +137,10 @@ Phase 1이 설계할 때 계층 배치의 기준으로 삼을 문서가 없다�
 3. `memory-bank/<TASK-ID>/` 구조 생성:
    ```bash
    REPO_ROOT="$(git rev-parse --show-toplevel)"
-   mkdir -p "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints"/{phase1,phase2a,phase2b,phase3,phase4,phase5}
+   mkdir -p "$REPO_ROOT/memory-bank/<TASK-ID>"
    ```
+   `checkpoints/phase*/` 는 미리 만들지 않는다 — 빈 디렉터리는 git 이 추적하지 못한다.
+   체크포인트를 저장할 때 `mkdir -p` 로 만든다.
 4. `activeContext.md` · `progress.md` 작성 (→ `docs/workflow/memory-bank-spec.md`).
    **`track` 을 정해 기록한다** — 아래 「경량 경로」
 5. 작업 브랜치 생성 — `feature/task-<번호>-<짧은-slug>`
