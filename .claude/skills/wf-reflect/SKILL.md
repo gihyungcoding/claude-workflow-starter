@@ -46,13 +46,18 @@ python scripts/rebuild_memory_bank_index.py --check               # exit 0
 
 ### Step 1 — 이력 수집
 
-이 태스크에서 실제로 무슨 일이 있었는지 모은다. **체크포인트가 1차 자료다.**
+이 태스크에서 실제로 무슨 일이 있었는지 모은다. **스크립트로 모으고, 원문은 필요할 때만 연다.**
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-ls "$REPO_ROOT/memory-bank/TASK-001/checkpoints/"*/
-grep -h "^  - decision:" -A2 "$REPO_ROOT/memory-bank/TASK-001/checkpoints/"*/*.md
+python3 scripts/collect_task_history.py --task-id TASK-001
 ```
+
+체크포인트 · VERIFY · DEV · PLAN · VALIDATION 과 그 git 이력을 한 번에 모은다. 파일을 읽어서는
+알 수 없는 것도 나온다 — VERIFY 는 라운드마다 덮어써지므로 **Phase 4 가 몇 번 FAIL 했는지**는
+git 이력을 라운드로 묶어야 보인다. 체크포인트의 되돌아간 기록과 VERIFY 라운드가 어긋나면
+(FAIL 은 있는데 attempts 가 없으면) 기록 누락으로 알린다.
+
+출력의 자유 텍스트는 한 줄로 접히고 잘린다. 원문이 필요한 항목만 해당 파일을 연다.
 
 볼 것:
 
@@ -63,6 +68,8 @@ grep -h "^  - decision:" -A2 "$REPO_ROOT/memory-bank/TASK-001/checkpoints/"*/*.m
 - `VERIFY_<ID>.json` 의 `root_causes` → `origin: later` 는 첫 라운드의 뿌리 스윕이 놓친
   변종이다. 어떤 질문이 빠졌는지가 개선 재료다 (`not_probed` 가 많았다면 프로브 환경도)
 - `DEV_<ID>.json` 의 `scope_deviations` → 계획을 벗어난 곳
+- Phase 4 라운드 수와 각 라운드의 판정 사유 → 되돌아간 횟수의 실제 값
+- PLAN 의 `exploration` → Phase 1 조사 시험의 판정 재료 (`wf-plan/references/explore-trial.md`)
 
 ### Step 2 — KPT 분석
 

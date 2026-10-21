@@ -67,10 +67,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _utils import (  # noqa: E402
     artifact_path,
-    is_source_file,
     is_valid_task_id,
     load_json,
     repo_root,
+    source_changed_between,
     task_id_error,
 )
 
@@ -254,14 +254,8 @@ def earlier_records(path: Path) -> list[dict[str, set[str]]]:
 
 
 def source_changed_since(sha: str) -> bool:
-    """그 커밋 이후 이 브랜치에서 소스가 바뀌었나 — 그렇다면 그 VERIFY 는 이전 라운드다.
-
-    기준 브랜치를 병합해 들어온 변경은 이 태스크의 라운드가 아니므로 세지 않는다.
-    """
-    out = _git("log", "--first-parent", "--no-merges", "--format=", "--name-only", f"{sha}..HEAD")
-    if not out:
-        return False
-    return any(is_source_file(f) for f in out.splitlines() if f.strip())
+    """그 커밋 이후 이 브랜치에서 소스가 바뀌었나 — 그렇다면 그 VERIFY 는 이전 라운드다."""
+    return source_changed_between(sha, "HEAD")
 
 
 def previous_round_unprobed(path: Path) -> set[tuple[str, str]]:
