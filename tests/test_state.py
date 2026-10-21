@@ -131,6 +131,27 @@ class FrontmatterTest(ProjectTestCase):
         self.assertEqual(fm["artifacts"], {"plan": "a.json", "scenario": "b.md"})
         self.assertEqual(fm["tags"], ["x", "y"])
 
+    def test_list_items_keep_every_key(self):
+        # 체크포인트의 decisions · attempts 모양. 예전에는 둘째 키부터 버렸다
+        fm = self.parse(
+            "---\nstatus: ACTIVE\ndecisions:\n"
+            '  - decision: "표로 묶음"\n    rationale: "폭증을 피함: 12건 상한"\n'
+            '  - decision: "SC-17 삭제"\n    rationale: "같은 경로"\n'
+            'attempts:\n  - n: 1\n    outcome: "FAIL — V11"\n    back_to: "2a"\n'
+            "  - n: 2\n    outcome: \"승인\"\n    back_to: null\nsummary: \"끝\"\n---\n")
+        self.assertEqual(fm["decisions"], [
+            {"decision": "표로 묶음", "rationale": "폭증을 피함: 12건 상한"},
+            {"decision": "SC-17 삭제", "rationale": "같은 경로"}])
+        self.assertEqual(fm["attempts"], [
+            {"n": 1, "outcome": "FAIL — V11", "back_to": "2a"},
+            {"n": 2, "outcome": "승인", "back_to": None}])
+        self.assertEqual(fm["summary"], "끝")
+
+    def test_scalar_list_items_and_nested_mappings_still_work(self):
+        fm = self.parse("---\ntags:\n  - a\n  - b: c\n    d: e\nartifacts:\n  plan: p.json\n---\n")
+        self.assertEqual(fm["tags"], ["a", {"b": "c", "d": "e"}])
+        self.assertEqual(fm["artifacts"], {"plan": "p.json"})
+
     def test_no_frontmatter_gives_empty_dict(self):
         self.assertEqual(self.parse("# just text\n"), {})
 

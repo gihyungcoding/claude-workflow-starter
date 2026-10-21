@@ -193,6 +193,10 @@ def parse_frontmatter(path: Path) -> dict:
     container: dict | list | None = None
     container_key: str | None = None
     list_key: str | None = None
+    # '- n: 1' 로 시작한 목록 항목. 그보다 깊게 들여쓴 'outcome: ...' 은 이 항목의 키다.
+    # 체크포인트의 decisions · attempts 가 이 모양이다 (checkpoint-template.md §3).
+    item: dict | None = None
+    item_indent = 0
 
     for raw in text[3:end].splitlines():
         if not raw.strip() or raw.lstrip().startswith("#"):
@@ -205,6 +209,7 @@ def parse_frontmatter(path: Path) -> dict:
             container = None
             container_key = None
             list_key = None
+            item = None
             if line.startswith("- ") or ":" not in line:
                 continue
             key, _, value = line.partition(":")
@@ -223,7 +228,6 @@ def parse_frontmatter(path: Path) -> dict:
             continue
 
         if line.startswith("- "):
-            item = line[2:].strip()
             target_key = list_key if list_key else container_key
             if list_key:
                 bucket = container.setdefault(list_key, [])  # type: ignore[union-attr]
@@ -231,12 +235,21 @@ def parse_frontmatter(path: Path) -> dict:
                 if not isinstance(result.get(target_key), list):
                     result[target_key] = []
                 bucket = result[target_key]
-            if ":" in item and not item.startswith(("'", '"')):
-                k, _, v = item.partition(":")
-                bucket.append({k.strip(): _scalar(v.strip())})
+            entry = line[2:].strip()
+            if ":" in entry and not entry.startswith(("'", '"')):
+                k, _, v = entry.partition(":")
+                item, item_indent = {k.strip(): _scalar(v.strip())}, indent
+                bucket.append(item)
             else:
-                bucket.append(_scalar(item))
+                item = None
+                bucket.append(_scalar(entry))
             continue
+
+        if item is not None and indent > item_indent and ":" in line:
+            k, _, v = line.partition(":")
+            item[k.strip()] = _scalar(v.strip())
+            continue
+        item = None
 
         if ":" in line:
             k, _, v = line.partition(":")
@@ -890,6 +903,26 @@ def changed_files_between(base: str, head: str = "HEAD") -> tuple[list[str], str
         return [f for f in out.stdout.splitlines() if f], ""
     except FileNotFoundError:
         return [], "git 을 찾을 수 없다"
+
+
+def source_changed_between(base: str, head: str = "HEAD") -> bool:
+    """base 이후 head 까지 이 브랜치에서 소스가 바뀌었나.
+
+    Phase 4 는 코드를 고치지 않으므로, 두 VERIFY 사이에 소스가 바뀌었으면 그 사이에
+    Phase 2b·3 을 거쳤다는 뜻 — 즉 다른 라운드다. 기준 브랜치를 병합해 들어온 변경은
+    이 태스크의 라운드가 아니므로 세지 않는다 (first-parent, 병합 커밋 제외).
+    """
+    try:
+        out = subprocess.run(
+            ["git", "log", "--first-parent", "--no-merges", "--format=", "--name-only",
+             f"{base}..{head}"],
+            capture_output=True, text=True, cwd=repo_root(),
+        )
+    except FileNotFoundError:
+        return False
+    if out.returncode != 0:
+        return False
+    return any(is_source_file(f) for f in out.stdout.splitlines() if f.strip())
 
 
 def is_source_file(path: str) -> bool:
