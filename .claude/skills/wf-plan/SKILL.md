@@ -30,7 +30,7 @@ description: >-
 
 ## FORBIDDEN
 
-1. ❌ 존재를 확인하지 않은 파일 경로를 `target_files` 에 쓰기
+1. ❌ 존재를 확인하지 않은 파일 경로를 `target_files` 에 쓰기 — 새로 만들 파일은 `"new": true`
 2. ❌ 구현 코드 작성 — 이 Phase는 코드를 만들지 않는다
 3. ❌ 테스트 작성 — Phase 2b의 일이다
 4. ❌ `acceptance_criteria` 중 일부를 "나중에" 로 미루기
@@ -41,7 +41,8 @@ description: >-
 - `workflow_design/04_plan/PLAN_<ID>.json` 존재, JSON 파싱 성공
 - `design.inputs`, `design.outputs`, `design.flows` 모두 비어 있지 않음
 - `route ∈ {Backend, Frontend, Database}`
-- `codebase_analysis.target_files` 의 모든 경로가 **실재**
+- **`check_plan.py` exit 0** — 기존 파일은 실재, 새 파일은 `new: true` 이고 아직 없음,
+  `reusable`·`existing_tests` 실재. 조사 결과를 요약으로 받았어도 이것으로 확인한다
 - `architecture_refs` 가 채워져 있음 (아키텍처 문서가 있는 경우)
 - `CP-1.3_context-plan.md` 저장 및 커밋
 
@@ -126,6 +127,10 @@ Foundation 문서가 아직 없으면(빈 프로젝트) 이 단계를 건너뛰�
 
 **추측하지 않고 찾는다.** 이 단계의 결과가 이후 모든 Phase의 전제가 된다.
 
+> **시험 중** — 조사를 내장 `Explore` 에이전트에 맡기고 결과를 요약으로 받는다. 아래 항목이
+> 그 에이전트에 줄 질문이다. 호출 템플릿·기록 방식·유지/철회 기준 → `references/explore-trial.md`.
+> 쓸 수 없으면 직접 조사하고 `exploration.method: "inline"` 으로 적는다.
+
 - 관련 기능의 기존 구현을 찾는다 (Grep/Glob)
 - **재사용할 수 있는 것**을 먼저 찾는다 — 기존 유틸리티·데코레이터·베이스 클래스
 - 변경 대상 파일과, 변경이 파급되는 파일을 구분한다
@@ -203,14 +208,16 @@ route 가 Frontend 이면 화면 간 이동을 flow 로 적었는가, 타입을 
   "codebase_analysis": {
     "target_files": [
       { "path": "src/api/store_search.py", "change": "권한 필터 추가" },
-      { "path": "src/repositories/store.py", "change": "담당 매장 조회 메서드 추가" }
+      { "path": "src/repositories/store.py", "change": "담당 매장 조회 메서드 추가" },
+      { "path": "src/services/store_scope.py", "change": "담당 범위 판정", "new": true }
     ],
     "reusable": [
       { "path": "src/auth/decorators.py", "symbol": "require_role",
         "note": "권한 체크 데코레이터 — 새로 만들지 말 것" }
     ],
     "existing_tests": ["tests/api/test_store_search.py"],
-    "unresolved": []
+    "unresolved": [],
+    "exploration": { "method": "explore", "calls": 1, "main_reads": 2 }
   },
 
   "acceptance_criteria": [ /* 태스크에서 그대로 */ ],
@@ -229,6 +236,7 @@ route 가 Frontend 이면 화면 간 이동을 flow 로 적었는가, 타입을 
 ### Step 5 — 저장
 
 1. `workflow_design/04_plan/PLAN_<ID>.json` 저장 (atomic — `docs/workflow/data-antipatterns.md` §6)
+   후 `python3 scripts/check_plan.py --task-id <ID>` — 위반이 있으면 고친다
 2. `CP-1.3_context-plan.md` 저장 (→ `docs/workflow/checkpoint-template.md`)
 3. `activeContext.md` 의 `phase`·`last_checkpoint`·`artifacts.plan` 갱신
 4. 커밋
