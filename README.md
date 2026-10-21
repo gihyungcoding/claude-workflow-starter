@@ -219,6 +219,7 @@ git cherry-pick <sha>
 │   ├── rebuild_memory_bank_index.py
 │   ├── rebuild_doc_index.py        ADR·기능 문서 인덱스
 │   ├── validate_tasks.py           스키마·WRU·순환 의존
+│   ├── check_plan.py               Phase 1 경로 검사 (기존 실재 · 신규 표시)
 │   ├── validate_phase2a_gate.py
 │   ├── check_architecture.py       constraints.yaml 위반 검사
 │   ├── check_freshness.py          승인한 코드가 그대로인가
