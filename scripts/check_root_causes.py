@@ -19,6 +19,15 @@ UNIQUE 위반으로 취급하는 catch" 가 뿌리였다. 증상 하나를 고�
 - FAIL 이 아니면 **재현된 변종은 모두 해소(resolved)** 되어 있고 근거가 있다
 - 이전에 커밋된 VERIFY 에 있던 뿌리·변종이 지금 파일에서 **사라지지 않았다** —
   불리한 항목을 지워 PASS 로 가는 길을 막는다
+- **이전 라운드에서 `not_probed` 였던 변종은 이번 라운드에 프로브되어 있다.** 프로브하지
+  않은 채 넘긴 변종이 다음 FAIL 이 됐다 — TASK-009 3차에 "password 의 짝 없는 서로게이트" 를
+  "영향 없다고 판단" 하고 건너뛰었고, 그것이 4차 FAIL(로그인 비밀번호 200)이었다.
+  Phase 3 가 그 변종의 테스트를 쓰는 것이 프로브다. `not_reproduced` 로 바꾸려면 그것을 보인
+  테스트를 `evidence` 에 적는다
+
+"이전 라운드" 는 그 VERIFY 버전 이후 이 브랜치에서 소스가 바뀐 경우다. Phase 4 는 코드를
+고치지 않으므로 소스 변경은 Phase 2b·3 을 거쳤다는 뜻이다. 기준 브랜치를 병합해 들어온
+변경은 세지 않는다 (first-parent, 병합 커밋 제외).
 
 사용
 ----
@@ -39,6 +48,10 @@ exit code
 HITL#3 요약과 Phase 5 회고가 그 숫자를 본다.
 이력 대조는 변종의 `case` 문자열이 같은지로 한다. 라운드를 넘길 때 문구를 다시 쓰면 지운 것으로
 읽히므로 그대로 옮겨 적는다.
+라운드 판정은 커밋된 소스 변경에 기댄다. Phase 4 중에 코드를 고치고 커밋하면(금지된 일이다)
+같은 라운드가 이전 라운드로 읽힌다.
+**수정이 뿌리를 고쳤는지**(공통 지점인지, 필드마다 따로인지)는 보지 않는다. 그것은 리뷰어가
+재검증 때 본다 (→ references/root-cause-sweep.md 「뿌리를 고친다는 것」).
 """
 
 from __future__ import annotations
@@ -54,6 +67,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _utils import (  # noqa: E402
     artifact_path,
+    is_source_file,
     is_valid_task_id,
     load_json,
     repo_root,
@@ -191,8 +205,8 @@ def _git(*args: str) -> str | None:
         return None
 
 
-def earlier_records(path: Path) -> list[dict[str, set[str]]]:
-    """이전에 커밋된 같은 파일의 root_causes. 각 버전은 {RC id: {case, ...}}."""
+def committed_versions(path: Path) -> list[tuple[str, dict]]:
+    """이전에 커밋된 같은 파일의 (커밋, 내용). root_causes 가 배열인 버전만."""
     try:
         rel = str(path.resolve().relative_to(repo_root().resolve()))
     except ValueError:
@@ -209,21 +223,79 @@ def earlier_records(path: Path) -> list[dict[str, set[str]]]:
             data = json.loads(blob)
         except json.JSONDecodeError:
             continue
-        raw = data.get("root_causes") if isinstance(data, dict) else None
-        if not isinstance(raw, list):
+        if isinstance(data, dict) and isinstance(data.get("root_causes"), list):
+            versions.append((sha, data))
+    return versions
+
+
+def _variants(data: dict):
+    """(RC id, case, variant) 를 차례로."""
+    for rc in data.get("root_causes") or []:
+        if not (isinstance(rc, dict) and isinstance(rc.get("id"), str)):
             continue
+        for v in rc.get("variants") or []:
+            if isinstance(v, dict) and _text(v.get("case")):
+                yield rc["id"], _text(v.get("case")), v
+
+
+def earlier_records(path: Path) -> list[dict[str, set[str]]]:
+    """이전에 커밋된 같은 파일의 root_causes. 각 버전은 {RC id: {case, ...}}."""
+    versions = []
+    for _, data in committed_versions(path):
         snapshot: dict[str, set[str]] = {}
-        for rc in raw:
+        for rc in data["root_causes"]:
             if isinstance(rc, dict) and isinstance(rc.get("id"), str):
-                cases = {
-                    _text(v.get("case"))
-                    for v in (rc.get("variants") or [])
-                    if isinstance(v, dict) and _text(v.get("case"))
-                }
-                snapshot[rc["id"]] = cases
+                snapshot.setdefault(rc["id"], set())
+        for rc_id, case, _ in _variants(data):
+            snapshot[rc_id].add(case)
         if snapshot:
             versions.append(snapshot)
     return versions
+
+
+def source_changed_since(sha: str) -> bool:
+    """그 커밋 이후 이 브랜치에서 소스가 바뀌었나 — 그렇다면 그 VERIFY 는 이전 라운드다.
+
+    기준 브랜치를 병합해 들어온 변경은 이 태스크의 라운드가 아니므로 세지 않는다.
+    """
+    out = _git("log", "--first-parent", "--no-merges", "--format=", "--name-only", f"{sha}..HEAD")
+    if not out:
+        return False
+    return any(is_source_file(f) for f in out.splitlines() if f.strip())
+
+
+def previous_round_unprobed(path: Path) -> set[tuple[str, str]]:
+    """이전 라운드의 VERIFY 에서 not_probed 였던 (RC id, case)."""
+    keys: set[tuple[str, str]] = set()
+    for sha, data in committed_versions(path):
+        if not source_changed_since(sha):
+            continue  # 같은 라운드 안에서 다시 커밋한 것
+        for rc_id, case, v in _variants(data):
+            if v.get("probe") == "not_probed":
+                keys.add((rc_id, case))
+    return keys
+
+
+def unprobed_followup_problems(data: dict, keys: set[tuple[str, str]]) -> list[str]:
+    """이전 라운드에서 프로브하지 않은 변종은 이번 라운드에 프로브되어 있어야 한다."""
+    current = {(rc_id, case): v for rc_id, case, v in _variants(data)}
+    problems = []
+    for rc_id, case in sorted(keys):
+        v = current.get((rc_id, case))
+        if v is None:
+            continue  # 사라진 변종은 carried_forward_problems 가 이미 잡는다
+        probe = v.get("probe")
+        if probe == "not_probed":
+            problems.append(
+                f"{rc_id}: 이전 라운드에서 프로브하지 않은 변종이 아직 not_probed 다 — {case!r}. "
+                "Phase 3 가 이 변종의 테스트를 썼어야 한다 (테스트가 프로브다)"
+            )
+        elif probe == "not_reproduced" and not _text(v.get("evidence")):
+            problems.append(
+                f"{rc_id}: 이전 라운드에서 프로브하지 않은 변종을 not_reproduced 로 바꿨는데 "
+                f"evidence 가 없다 — {case!r}. 재현되지 않음을 보인 테스트를 적는다"
+            )
+    return problems
 
 
 def carried_forward_problems(data: dict, earlier: list[dict[str, set[str]]]) -> list[str]:
@@ -275,6 +347,7 @@ def main() -> int:
 
     problems, stats = validate_record(data)
     problems += carried_forward_problems(data, earlier_records(path))
+    problems += unprobed_followup_problems(data, previous_round_unprobed(path))
     status = data.get("status")
 
     if args.json:
