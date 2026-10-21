@@ -133,3 +133,14 @@ unblock_condition: "TASK-014 완료 후 DEV_TASK-014.json 의 응답 스키마 �
 
 이 이력이 Phase 5 회고의 입력이 된다. 거절이 반복된 지점은 대개 규칙이나 태스크 정의에
 문제가 있다는 신호다.
+
+### Phase 4 FAIL 로 돌아올 때는 뿌리 단위로
+
+증상 하나를 고치려고 돌아가지 않는다. 되돌아갈 때마다 독립검증 · HITL · Red · Green · 리뷰를
+다시 도는데, 증상 하나만 고치면 같은 뿌리의 다음 변종 때문에 또 돌아온다.
+
+`VERIFY_<ID>.json` 의 `root_causes` 에서 **`probe: reproduced` 변종 전부를 이번 왕복에서
+처리한다.** Phase 3 은 뿌리를 고치고 변종마다 테스트를 먼저 실패시키며, 시나리오가 필요하면
+Phase 2a 에서 변종 전부를 한 번에 가져간다. 재검증에서 같은 뿌리의 변종이 또 나오면 새 뿌리를
+만들지 않고 `origin: "later"` 로 덧붙인다 — 회고가 스윕이 놓친 것을 세는 근거다.
+(→ `.claude/skills/wf-verify/references/root-cause-sweep.md`)

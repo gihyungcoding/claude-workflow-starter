@@ -60,6 +60,8 @@ grep -h "^  - decision:" -A2 "$REPO_ROOT/memory-bank/TASK-001/checkpoints/"*/*.m
   (v1 체크포인트를 쓰던 태스크면 `_retry` 파일과 `SUPERSEDED` 가 같은 정보다)
 - 각 CP의 `decisions` → 무엇을 왜 결정했는가
 - `VERIFY_<ID>.json` 의 WARN·예외 승인 → 무엇을 남겨뒀는가
+- `VERIFY_<ID>.json` 의 `root_causes` → `origin: later` 는 첫 라운드의 뿌리 스윕이 놓친
+  변종이다. 어떤 질문이 빠졌는지가 개선 재료다 (`not_probed` 가 많았다면 프로브 환경도)
 - `DEV_<ID>.json` 의 `scope_deviations` → 계획을 벗어난 곳
 
 ### Step 2 — KPT 분석

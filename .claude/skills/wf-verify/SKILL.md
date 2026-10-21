@@ -18,7 +18,8 @@ description: >-
 4. **`check_architecture.py` 를 실행한다.** `severity: error` 위반은 `status: FAIL`.
    **`no_target` 이 비어 있지 않으면 그 제약은 통과한 것이 아니다** — 검사되지 않은 것이다
 5. **`architecture.md` 의 산문 규칙과 `constraints.yaml` 을 대조한다** (Step 3.5)
-6. `code-reviewer` 서브에이전트로 변경 코드를 리뷰한다
+6. `code-reviewer` 서브에이전트로 변경 코드를 리뷰한다. **결함이면 증상이 아니라 뿌리와
+   변종까지 적는다** (`references/root-cause-sweep.md`)
 7. HITL#3 승인을 `AskUserQuestion` 으로 받는다
 8. **승인 시 `verified_commit` 에 현재 HEAD 를 기록한다** — 무엇을 승인했는지의 증거
 
@@ -42,6 +43,7 @@ description: >-
 - **`evidence.lint.exit_code` 가 실제 숫자** — 린트 도구가 없으면 `null` + `skipped_reason`
 - `human_review.decision ∈ {APPROVE, EXCEPTION_APPROVE}`
 - `human_review.verified_commit` 기록됨
+- **`check_root_causes.py` exit 0** — 재현된 변종이 남은 채로는 PASS·WARN 불가
 - `CP-4.2` 저장 및 커밋
 
 ---
@@ -197,7 +199,9 @@ TASK-001 의 변경 코드를 리뷰해주세요.
 **두 번째 이후 호출이면** 이전 결함의 카테고리를 지목해 같은 부류를 전수 확인하게 하고,
 Phase 3 롤백 후라면 **수정 커밋도 최소 1회 다시 리뷰한다** (→ `references/code-review-rounds.md`).
 
-리뷰 결과를 `code_review` 에 그대로 담는다. 지적 사항이 있으면:
+리뷰 결과를 `code_review` 에 그대로 담는다. 결함이 있으면 리뷰어가 낸 `root_causes` 를
+**최상위 `root_causes` 에 그대로** 옮기고, 두 번째 라운드부터는 이전 항목을 이어받는다.
+지적 사항이 있으면:
 
 - **결함(correctness)** → `status: FAIL`. Phase 3으로 되돌린다
 - **개선 제안(quality)** → `status: WARN` 또는 Phase 5의 `try` 항목으로
@@ -263,6 +267,7 @@ Phase 3 롤백 후라면 **수정 커밋도 최소 1회 다시 리뷰한다** (�
   "regression": { "full_suite": "18/18 passed", "callers_checked": true },
   "scope_deviations": [],
   "code_review": { "findings": [] },
+  "root_causes": [],                   // 결함이 있으면 뿌리·변종 — references/root-cause-sweep.md
   "security": {
     "input_validation": "keyword 길이 제한 적용됨",
     "authorization": "require_role 데코레이터 적용",
@@ -277,6 +282,9 @@ Phase 3 롤백 후라면 **수정 커밋도 최소 1회 다시 리뷰한다** (�
   }
 }
 ```
+
+저장한 뒤 `python3 scripts/check_root_causes.py --task-id <ID>` 를 실행한다. 위반이 있으면
+고친 뒤 커밋한다. **FAIL 이면 롤백 요약에 뿌리·변종 수를 적는다** (예: 뿌리 1 · 변종 3, 재현 2).
 
 `CP-4.2_verification.md` 저장.
 
