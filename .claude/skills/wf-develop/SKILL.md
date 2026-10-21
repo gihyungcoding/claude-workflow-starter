@@ -53,10 +53,16 @@ cat workflow_design/04_plan/PLAN_TASK-001.json         # 어디를 고치는가,
 (→ `wf-verify/references/root-cause-sweep.md`).
 
 - 증상 하나가 아니라 **뿌리**를 고친다. 증상만 고치면 같은 뿌리의 다음 변종 때문에 다시 돌아온다
+- 같은 뿌리의 변종이 둘 이상이면 **공통 지점**(검증기 · 필터 · 역직렬화 · 공용 메서드)에서
+  고친다. 필드마다 따로 붙이면 빠뜨린 한 곳이 다음 FAIL 이 된다. 공통 지점이 없으면 걸리는
+  모든 위치를 Grep 으로 열거해 `rollback_fixes[].sites` 에 남긴다
 - `probe: reproduced` 변종마다 **테스트를 먼저 실패시킨 뒤** 고친다 (Red → Green)
+- `probe: not_probed` 변종도 **테스트를 쓴다** — 테스트가 프로브다. 실패하면 고치고, 통과하면
+  그 테스트가 다음 VERIFY 의 `not_reproduced` 근거(`evidence`)가 된다
 - 변종이 시나리오에 없는 동작이라 테스트를 쓸 수 없다면 여기서 만들지 않는다. Phase 2a 로
   돌아가되 **변종 전부를 한 번에** 가져간다 (시나리오에 없는 기능 추가는 금지다)
-- 고친 내용은 `DEV_<ID>.json` 의 `rollback_fixes` 에 `{root_cause, variants, tests}` 로 남긴다
+- 고친 내용은 `DEV_<ID>.json` 의 `rollback_fixes` 에
+  `{root_cause, variants, tests, fix_locus: "common" | "per_site", sites}` 로 남긴다
 
 구현 순서나 재사용 대상을 정했으면 `CP-3.4` 의 `decisions` 에 남긴다.
 

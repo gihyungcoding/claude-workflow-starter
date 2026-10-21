@@ -143,4 +143,6 @@ unblock_condition: "TASK-014 완료 후 DEV_TASK-014.json 의 응답 스키마 �
 처리한다.** Phase 3 은 뿌리를 고치고 변종마다 테스트를 먼저 실패시키며, 시나리오가 필요하면
 Phase 2a 에서 변종 전부를 한 번에 가져간다. 재검증에서 같은 뿌리의 변종이 또 나오면 새 뿌리를
 만들지 않고 `origin: "later"` 로 덧붙인다 — 회고가 스윕이 놓친 것을 세는 근거다.
+`not_probed` 로 넘긴 변종은 다음 라운드에 반드시 프로브하고, 같은 뿌리의 변종이 둘 이상이면
+위치마다가 아니라 공통 지점에서 고친다.
 (→ `.claude/skills/wf-verify/references/root-cause-sweep.md`)
