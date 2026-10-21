@@ -147,16 +147,44 @@ def check_freshness(task_id: str) -> Check:
 
 def check_architecture() -> Check:
     c = Check("아키텍처 제약")
-    code, out = run_script("check_architecture.py")
-    c.ok = code == 0
-    if "정의된 제약이 없" in out or "건너뜁니다" in out:
+    code, out = run_script("check_architecture.py", "--json")
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError:
+        c.detail = "판정 불가"
+        c.lines = out.splitlines()[:4]
+        return c
+
+    status = data.get("status")
+    if status in ("skipped", "empty"):
         c.ok, c.skipped = True, True
         c.detail = "정의된 제약 없음"
-    elif c.ok:
-        c.detail = out.strip().splitlines()[-1] if out.strip() else "통과"
-    else:
+        return c
+
+    if status == "fail":
         c.detail = "error 위반 있음"
-        c.lines = [l.strip() for l in out.splitlines() if l.strip().startswith("✗")][:6]
+        c.lines = [
+            f"{r['id']}  {r['rule']}"
+            for r in data.get("results", [])
+            if r.get("violations") and r.get("severity") == "error"
+        ][:6]
+        return c
+
+    c.ok = True
+    total = len(data.get("results", []))
+    unscanned = data.get("no_target") or []
+    if unscanned:
+        # 대상 파일이 없어 검사되지 않은 제약은 통과가 아니다. 막지는 않는다 — 아직 없는
+        # 계층에 대한 제약일 수 있다 — 하지만 '통과'로 뭉뚱그리지 않고 무엇인지 적는다.
+        c.detail = (
+            f"제약 {total - len(unscanned)}건 통과, {len(unscanned)}건은 검사되지 않음 "
+            f"({', '.join(unscanned)})"
+        )
+        c.lines = ["검사 대상 파일이 없었다 — detect.paths 의 glob 이 실제 경로와 맞는지 확인하라"]
+    else:
+        c.detail = f"제약 {total}건 통과 — 파일 {data.get('files_scanned', 0)}개 검사"
+    for item in data.get("overdue_promotions") or []:
+        c.lines.append(f"승격 기한 지남: {item['id']} ({item['promote_after']} 완료)")
     return c
 
 
