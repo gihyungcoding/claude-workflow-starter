@@ -17,6 +17,8 @@ Red 테스트를 통과시킨다. **최소 구현 → 확인 → 리팩토링** 
 3. 리팩토링 후 테스트를 **다시 실행**해 여전히 통과하는지 확인한다
 4. 기존 테스트가 깨지지 않았는지 전체 스위트를 돌린다
 5. 린트/포맷을 통과시킨다
+6. **Phase 4 로 넘기기 전에 `code-reviewer` 로 자체 리뷰를 한다** (Step 5.5). 결함은 여기서
+   고친다 — Phase 4 에서 잡히면 거절 기록·롤백·재승인까지 한 바퀴를 더 돈다
 
 ## FORBIDDEN
 
@@ -25,6 +27,8 @@ Red 테스트를 통과시킨다. **최소 구현 → 확인 → 리팩토링** 
 3. ❌ 테스트를 실행하지 않고 "구현 완료" 보고
 4. ❌ 전체 스위트를 돌리지 않고 넘어가기 — 회귀를 못 잡는다
 5. ❌ Plan에 없는 파일을 대량 수정 — 필요하면 이유를 기록한다
+6. ❌ **자체 리뷰의 `[correctness]` 소견을 고치지 않거나 기록하지 않고 Phase 4 로 넘기기** —
+   Phase 4 리뷰어가 같은 결함을 다시 찾아 FAIL 이 된다
 
 ## EXIT GATE
 
@@ -34,6 +38,8 @@ Red 테스트를 통과시킨다. **최소 구현 → 확인 → 리팩토링** 
 - 전체 테스트 스위트 통과 (기존 테스트 포함)
 - 린트 error 0 — **린트 도구가 없으면 `"errors": null` + `skipped_reason`.**
   `"command": "N/A", "errors": 0` 으로 적으면 이 게이트가 무력해진다
+- `pre_review.rounds` 가 1개 이상이고, 마지막 라운드 이후 남은 `[correctness]` 가
+  `pre_review.unresolved` 에 모두 적혀 있음
 - `CP-3.4` 저장 및 커밋
 
 ---
@@ -134,6 +140,67 @@ pytest
 첫 태스크에서 도입하는 편이 거의 항상 낫다. 코드가 적을 때 포매터를 넣으면 변경이 작고,
 나중에 넣으면 전체 파일이 한 번에 재포맷되어 리뷰가 불가능해진다.
 
+### Step 5.5 — 자체 리뷰
+
+Phase 4 1차 검증이 FAIL 난 태스크가 최근 5건 중 4건이었다(TASK-010·011·012·014). 거의
+전부 `code-reviewer` 의 `[correctness]` 소견이었고, 한 번 FAIL 날 때마다 거절 기록 →
+롤백 → 수정 → 재검증 → 재승인에 20~40분이 들었다. **같은 리뷰어를 여기서 먼저 부른다.**
+
+이 리뷰가 Phase 4 리뷰를 대신하지는 않는다. Phase 4 는 리뷰어를 다시 부르고, 이 단계에서
+나온 `root_causes` 를 이전 라운드로 넘겨받는다.
+
+**1. 구현을 먼저 커밋한다.** 리뷰어는 `git diff <기준>...HEAD` 를 읽는다. 커밋하지 않은
+파일, 특히 새로 만든 파일은 리뷰 범위에 들어가지 않는다.
+
+```bash
+git add <변경한 소스 경로>
+git commit -m "feat(<scope>): <subject>
+
+Refs: TASK-001"
+```
+
+**2. 리뷰어를 부른다.** 프롬프트는 Phase 4 Step 5 와 같은 형식이다. **`CLAUDE.md`
+「이 프로젝트에 대해」에 `code-reviewer` 리뷰 지시가 있으면 여기에도 그대로 넣는다**
+(예: 이 저장소의 JPA 지시).
+
+```
+Agent({
+  subagent_type: "code-reviewer",
+  description: "TASK-001 Phase 3 자체 리뷰",
+  run_in_background: false,
+  prompt: `
+TASK-001 의 변경 코드를 리뷰해주세요. Phase 3 자체 리뷰입니다.
+
+변경 파일: <DEV 에 적을 changed_files>
+비교 기준: git diff <기준 브랜치>...HEAD
+설계: workflow_design/04_plan/PLAN_TASK-001.json
+시나리오: workflow_design/05_scenario/SCENARIO_TASK-001.md
+<CLAUDE.md 의 프로젝트별 리뷰 지시>
+`
+})
+```
+
+**3. 소견에 따라 처리한다.**
+
+| 소견 | 처리 |
+|---|---|
+| `[correctness]`, 변종이 시나리오 안의 동작 | Step 1 「Phase 4 FAIL 로 돌아왔다면」 규칙대로 고친다 — 뿌리를 공통 지점에서 고치고, 변종마다 **테스트를 먼저 실패시킨 뒤** 고친다. 고친 것은 `fix` 커밋으로 남긴다 |
+| `[correctness]`, 변종이 시나리오에 없는 동작 | 여기서 만들지 않는다. **Phase 4 를 거치지 말고 지금** 사용자에게 2a 롤백을 제안한다. 변종은 전부 한 번에 가져간다 |
+| `[security]` | `[correctness]` 와 같이 처리한다 |
+| `[design]` `[reuse]` `[test]` | 범위 안에서 싸게 고칠 수 있으면 고친다. 아니면 `pre_review.deferred` 에 적어 Phase 4 로 넘긴다 |
+
+새로 쓴 테스트는 HITL#2 승인을 받은 테스트가 아니다. `pre_review.rounds[].tests_added` 에
+적어 Phase 4 가 리뷰하게 한다. **승인된 테스트는 고치지 않는다** — 고쳐야 하면 Step 3 의
+3요건을 따른다.
+
+**4. 고쳤으면 한 번 더 리뷰한다.** `wf-verify/references/code-review-rounds.md` §1·§2 대로
+이전 `root_causes` 를 넘기고, 수정 커밋 범위(`<1라운드 HEAD>...HEAD`)를 지정한다.
+**자체 리뷰는 최대 2라운드다.** 2라운드 뒤에도 `[correctness]` 가 남으면 고치려고 더 돌지
+않는다. `pre_review.unresolved` 에 적고 사용자에게 알린 뒤 Phase 4 로 넘긴다. 판정은
+Phase 4 가 한다.
+
+소견이 없으면 1라운드로 끝난다. **결함이 없다는 리뷰 결과도 `rounds` 에 남긴다.**
+
 ### Step 6 — DEV JSON 저장
 
 ```jsonc
@@ -160,7 +227,19 @@ pytest
     { "what": "매장 ID 목록 조회를 리포지토리로 이동",
       "why": "API 계층에 쿼리 로직이 있었음" }
   ],
-  "scope_deviations": []
+  "scope_deviations": [],
+  "pre_review": {                      // Step 5.5 — 자체 리뷰
+    "rounds": [
+      { "n": 1, "scope": "전체 develop...HEAD", "findings": 1,
+        "tests_added": ["StoreSearchTest#blankKeywordIsRejected"],
+        "fix_commit": "b4c5d6e" },
+      { "n": 2, "scope": "수정 커밋 a1b2c3d...HEAD · 같은 카테고리 전수", "findings": 0,
+        "tests_added": [], "fix_commit": null }
+    ],
+    "root_causes": [ /* 리뷰어가 낸 그대로 — Phase 4 가 이전 라운드로 넘겨받는다 */ ],
+    "unresolved": [],                  // 2라운드 뒤에도 남은 [correctness]
+    "deferred": []                     // 고치지 않고 Phase 4 로 넘긴 비결함 소견
+  }
 }
 ```
 
@@ -168,17 +247,18 @@ pytest
 비어 있는 것이 정상이고, 항목이 있으면 Phase 4가 그것을 검토한다.
 
 `CP-3.4_context-dev.md` 를 마무리 갱신하고(`next_steps` 를 Phase 4 로), `activeContext.md` 갱신, 커밋.
+소스는 Step 5.5 에서 이미 커밋했으므로 여기서는 산출물만 커밋한다.
 
 ```bash
-git add src/ workflow_design/06_dev memory-bank/TASK-001
-git commit -m "feat(store): 매장 검색에 슈퍼바이저 권한 필터 적용
+git add workflow_design/06_dev memory-bank/TASK-001
+git commit -m "chore(workflow): TASK-001 Phase 3 Green 완료
 
 Refs: TASK-001"
 ```
 
 ### Step 7 — 보고
 
-`track: light` 면 테스트 수·린트·범위 이탈만 보고한다 (→ `wf-orchestrator` 「경량 경로」).
+`track: light` 면 테스트 수·린트·범위 이탈·자체 리뷰만 보고한다 (→ `wf-orchestrator` 「경량 경로」).
 
 ```
 Phase 3 완료 — TASK-001
@@ -188,6 +268,7 @@ Phase 3 완료 — TASK-001
   테스트    18/18 통과 (대상 6 + 기존 12)
   린트     error 0
   리팩토링  쿼리 로직을 리포지토리 계층으로 이동
+  자체 리뷰 2라운드 — 결함 1건(빈 keyword) 수정, 테스트 1건 추가, 미해결 0
   게이트    통과
 
 다음: Phase 4 — 검증

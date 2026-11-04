@@ -50,6 +50,27 @@ description: >-
 
 ## 절차
 
+### 실행 순서 — 독립된 검사는 동시에 돌린다
+
+Step 1·3·4·5·6 은 서로의 결과를 입력으로 쓰지 않는다. 순서대로 돌리면 가장 오래 걸리는
+리뷰어(Step 5) 시간 위에 나머지 시간이 그대로 더해진다.
+
+1. **리뷰어를 먼저 띄운다** — Step 5 의 `Agent` 호출을 `run_in_background: true` 로 보낸다
+2. **같은 응답에서** Step 1 의 테스트·린트·diff 명령과 Step 3 의 `check_architecture.py` 를
+   병렬 `Bash` 호출로 보낸다. backend 와 frontend 가 모두 바뀌었으면 각각 따로 보낸다
+3. 리뷰어를 기다리는 동안 Step 2(기준 대조) · 2.5(화면) · 3.5(산문 대조) · 4(호출부 Grep,
+   `scope_deviations`) · 6(보안)을 한다
+4. 리뷰어 완료 알림을 받은 뒤 Step 5 의 결과 처리를 하고 Step 7 로 간다.
+   **완료 알림 전에 Step 7 을 저장하지 않는다** — 리뷰 결과가 없는 VERIFY 가 된다
+
+Gradle 은 같은 프로젝트의 동시 빌드를 락으로 직렬화한다. 리뷰어의 프로브와 Step 1 테스트가
+겹치면 한쪽이 기다릴 뿐 결과가 섞이지는 않는다. 다만 **같은 테스트 DB 를 공유하는 통합
+테스트**가 동시에 돌면 서로의 데이터를 볼 수 있다. Step 1 의 결과가 평소와 다르게 실패하면
+리뷰어가 끝난 뒤 한 번 더 돌려 확인하고, 두 실행 결과를 모두 적는다.
+
+FAIL 판정이 먼저 나와도(예: 아키텍처 error) 나머지 검사는 끝까지 돌린다. 롤백 한 번에
+결함을 전부 가져가야 다시 돌아오지 않는다.
+
 ### Step 1 — 증거 수집
 
 명령을 실제로 돌리고 출력을 보관한다.
@@ -181,11 +202,13 @@ ARCH-001 위반 — src/api/store_search.py:12
 
 ### Step 5 — 코드 리뷰
 
+「실행 순서」대로 백그라운드로 띄운다.
+
 ```
 Agent({
   subagent_type: "code-reviewer",
   description: "TASK-001 변경 코드 리뷰",
-  run_in_background: false,
+  run_in_background: true,
   prompt: `
 TASK-001 의 변경 코드를 리뷰해주세요.
 
@@ -195,6 +218,13 @@ TASK-001 의 변경 코드를 리뷰해주세요.
 `
 })
 ```
+
+**Phase 3 자체 리뷰(`DEV_<ID>.json` 의 `pre_review`)가 있으면 그것이 이전 라운드다.**
+Phase 4 의 첫 호출도 `code-review-rounds.md` §1 의 재호출 규칙을 따른다. `pre_review.root_causes`
+와 `unresolved` 를 넘겨 해소됐는지와 같은 부류가 남았는지 보게 하고, `tests_added` 가
+가짜로 통과하지 않는지(관찰 대상이 실제 경로인지)도 보게 한다. **범위는 줄이지 않는다** —
+비교 기준은 여전히 `<기준>...HEAD` 전체다. 자체 리뷰가 놓친 것을 찾는 것이 이 리뷰의 몫이다.
+`code_review.rounds` 에는 자체 리뷰 라운드를 `"phase": 3` 으로 앞에 옮겨 적고 이어서 번호를 매긴다.
 
 **두 번째 이후 호출이면** 이전 결함의 카테고리를 지목해 같은 부류를 전수 확인하게 하고,
 Phase 3 롤백 후라면 **수정 커밋도 최소 1회 다시 리뷰한다** (→ `references/code-review-rounds.md`).
