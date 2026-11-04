@@ -361,5 +361,45 @@ class StatusAndProposalsTest(ProjectTestCase):
         self.assertIn("진행 중인 태스크가 없습니다", out)
 
 
+class UnreviewedRetrosTest(ProjectTestCase):
+    """HITL#4 는 비동기다 — 닫혔지만 회고 승인을 안 받은 태스크가 /wf-status 에 보여야 한다."""
+
+    def closed(self, tid: str, approved, status: str = "DONE") -> None:
+        self.project.write(
+            f"memory-bank/{tid}/activeContext.md",
+            f'---\ntask_id: {tid}\ntitle: "제목 {tid}"\nphase: "5"\nstatus: {status}\nlast_updated: 2026-01-01\n---\n',
+        )
+        self.project.write_json(
+            f"workflow_design/08_reflect/REFLECT_{tid}.json",
+            {"task_id": tid, "completion_report": {"approved_by_human": approved}},
+        )
+
+    def retros(self) -> list[str]:
+        out = self.project.run("wf_status.py", "--json")
+        self.assertEqual(out.returncode, 0)
+        return [t["task_id"] for t in json.loads(out.stdout)["unreviewed_retros"]]
+
+    def test_only_unapproved_done_tasks_are_listed(self):
+        self.closed("TASK-001", False)
+        self.closed("TASK-002", True)
+        self.closed("TASK-003", False, status="ACTIVE")
+        self.assertEqual(self.retros(), ["TASK-001"])
+
+    def test_string_true_is_not_approval(self):
+        self.closed("TASK-001", "true")
+        self.assertEqual(self.retros(), ["TASK-001"])
+
+    def test_done_task_without_reflect_is_not_listed(self):
+        self.closed("TASK-001", False)
+        self.project.path("workflow_design/08_reflect/REFLECT_TASK-001.json").unlink()
+        self.assertEqual(self.retros(), [])
+
+    def test_human_output_points_to_wf_retro(self):
+        self.closed("TASK-001", False)
+        out = self.project.run("wf_status.py").stdout
+        self.assertIn("회고 승인 대기 1건", out)
+        self.assertIn("/wf-retro", out)
+
+
 if __name__ == "__main__":
     unittest.main()

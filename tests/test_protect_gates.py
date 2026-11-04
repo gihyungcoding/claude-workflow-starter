@@ -104,7 +104,7 @@ class ProtectGatesTest(ProjectTestCase):
     def test_approved_red_test_edit_asks(self):
         self.task("TASK-001", phase="3")
         self.red_tests("TASK-001", [APPROVED_TEST])
-        self.assertAsks(APPROVED_TEST, "HITL#2", "Phase 2a/2b")
+        self.assertAsks(APPROVED_TEST, "통합 HITL(#1·2)", "Phase 2a/2b")
 
     def test_directory_entry_in_test_files_covers_files_under_it(self):
         self.task("TASK-001", phase="3")
@@ -207,7 +207,7 @@ class ProtectGatesTest(ProjectTestCase):
             self.skipTest("대소문자를 구분하는 파일시스템")
         self.task("TASK-001", phase="3")
         self.red_tests("TASK-001", [APPROVED_TEST])
-        self.assertAsks(APPROVED_TEST.upper().replace("/SRC/", "/src/"), "HITL#2")
+        self.assertAsks(APPROVED_TEST.upper().replace("/SRC/", "/src/"), "통합 HITL(#1·2)")
 
     def test_unicode_normalization_variant_of_approved_test_still_asks(self):
         # APFS 는 NFC/NFD 를 같은 이름으로 본다. Linux 에서는 다른 파일이라 건너뛴다.
@@ -218,7 +218,7 @@ class ProtectGatesTest(ProjectTestCase):
             self.skipTest("유니코드 정규화를 구분하는 파일시스템")
         self.task("TASK-001", phase="3")
         self.red_tests("TASK-001", [nfc])
-        self.assertAsks(nfd, "HITL#2")
+        self.assertAsks(nfd, "통합 HITL(#1·2)")
 
     # --- 훅은 작업을 막는 쪽으로 고장나면 안 된다 ---
 

@@ -97,18 +97,20 @@ def check_phase_complete(task_id: str) -> Check:
         c.detail = f"태스크가 차단 상태다 — {fm.get('blocked_reason', '사유 미기록')}"
         return c
 
+    # HITL#4 는 비동기다 — 회고가 작성되고 태스크가 닫혔으면 Ship 할 수 있다.
+    # 회고 승인은 나중에 일괄 검토(/wf-retro)에서 받으므로 여기서는 알리기만 한다.
     reflect, err = load_json(artifact_path(task_id, "5"))
-    approved = (
-        isinstance(reflect, dict)
-        and (reflect.get("completion_report") or {}).get("approved_by_human") is True
-    )
-    if not approved:
-        c.detail = f"Phase 5 회고 승인이 없다 (현재 Phase {phase or '?'})"
+    if not isinstance(reflect, dict):
+        c.detail = f"Phase 5 회고가 없다 (현재 Phase {phase or '?'})"
         c.lines = ["회고까지 마쳐야 무엇이 머지되는지 릴리스 시점에 알 수 있다"]
+        return c
+    if status != "DONE":
+        c.detail = f"태스크가 닫히지 않았다 (status {status or '?'}, Phase {phase or '?'})"
         return c
 
     c.ok = True
-    c.detail = "회고 승인됨"
+    approved = (reflect.get("completion_report") or {}).get("approved_by_human") is True
+    c.detail = "회고 작성됨 · 승인됨" if approved else "회고 작성됨 · 승인 대기 (/wf-retro)"
     return c
 
 

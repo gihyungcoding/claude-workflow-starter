@@ -4,8 +4,12 @@
 왜 필요한가
 -----------
 Phase 2a 를 수행한 에이전트가 스스로 "게이트 통과"라고 판정하면 검증이 순환한다. 이 스크립트는
-산출물 파일만 보고 판정하므로 에이전트의 자기신고와 무관하다. wf-scenario 스킬이 HITL#1 승인
-직후 실행하고, exit 0 이 아니면 Phase 2b 로 넘어갈 수 없다.
+산출물 파일만 보고 판정하므로 에이전트의 자기신고와 무관하다. wf-scenario 스킬이 독립검증
+통과 직후 실행하고, exit 0 이 아니면 Phase 2b 로 넘어갈 수 없다.
+
+HITL#1 은 Red 테스트 승인(HITL#2)과 합쳐져 Phase 2b 끝에서 한 번 받는다. 그래서 2a 를 떠날
+때는 사람 승인을 보지 않고, 통합 승인 직후 wf-red 가 --require-hitl 로 다시 실행해
+generate_red_trigger 가 기록됐는지 확인한다.
 
 원본 대비 간소화
 ---------------
@@ -17,7 +21,7 @@ tools allowlist 상 파일을 쓸 수 없으므로 위변조 경로 자체가 �
 사용
 ----
     python scripts/validate_phase2a_gate.py --task-id TASK-001
-    python scripts/validate_phase2a_gate.py --task-id TASK-001 --skip-hitl
+    python scripts/validate_phase2a_gate.py --task-id TASK-001 --require-hitl
 
 exit code
 ---------
@@ -73,7 +77,7 @@ class Result:
         return "\n".join(lines)
 
 
-def validate(task_id: str, skip_hitl: bool) -> Result:
+def validate(task_id: str, require_hitl: bool) -> Result:
     result = Result()
     scenario_dir = workflow_design_root() / "05_scenario"
     md_path = scenario_dir / f"SCENARIO_{task_id}.md"
@@ -145,10 +149,8 @@ def validate(task_id: str, skip_hitl: bool) -> Result:
             f"fail {fail_count}건 — {overall.get('summary', '')}" if not passed else "",
         )
 
-    # 5. HITL#1 승인
-    if skip_hitl:
-        result.check("HITL#1 승인", True, "--skip-hitl 로 건너뜀")
-    else:
+    # 5. HITL#1 승인 — 2b 끝의 통합 승인에서 기록되므로 --require-hitl 일 때만 본다
+    if require_hitl:
         trigger = (data.get("human_input") or {}).get("generate_red_trigger")
         result.check(
             "HITL#1 승인 (generate_red_trigger)",
@@ -173,9 +175,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--task-id", required=True)
     parser.add_argument(
-        "--skip-hitl",
+        "--require-hitl",
         action="store_true",
-        help="HITL 승인 조건을 건너뛴다 (승인 전 사전 점검용)",
+        help="HITL#1 승인(generate_red_trigger)까지 확인한다 (2b 끝 통합 승인 직후용)",
     )
     args = parser.parse_args()
 
@@ -183,7 +185,7 @@ def main() -> int:
         print(task_id_error(args.task_id), file=sys.stderr)
         return 2
 
-    result = validate(args.task_id, args.skip_hitl)
+    result = validate(args.task_id, args.require_hitl)
     print(result.render(args.task_id))
     return 1 if result.failed else 0
 

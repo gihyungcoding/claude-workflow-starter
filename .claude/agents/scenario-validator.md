@@ -3,7 +3,7 @@ name: scenario-validator
 description: >-
   Phase 2a 시나리오를 독립적으로 검증한다. 시나리오가 Plan의 입출력·흐름과 대응하는지,
   acceptance_criteria 를 덮는지, Then 이 관찰 가능한지를 확인하고 구조화된 판정을 낸다.
-  wf-scenario 스킬이 HITL#1 이전에 호출한다.
+  wf-scenario 스킬이 Phase 2b 로 넘기기 전에 호출한다.
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -42,6 +42,18 @@ model: sonnet
 | V10 | **회귀 누락** | 기존 동작을 바꾸는 태스크인데 `regression` 시나리오가 없는가 (Plan의 `target_files` 가 기존 파일 수정이면 해당) |
 | V11 | **입력 경계값** | Plan 의 `design.inputs` 를 `coverage-policy.md` §2-1 표에 대봤을 때 **해당하는데 시나리오가 없는 행**이 있는가. 필드·타입·빠진 경계를 하나씩 적는다. 없으면 FAIL — 이 누락이 Phase 4 FAIL 의 가장 흔한 원인이었다 |
 
+### V11 은 첫 누락에서 멈추지 않는다
+
+V11 은 **입력 필드 × §2-1 행 행렬을 끝까지 채운 뒤** 판정한다. 누락을 한두 건 찾았다고
+멈추면 작성자는 그것만 고치고, 다음 회차에 남은 칸이 새 누락으로 나온다. TASK-010 은
+이렇게 V11 하나로 5회차까지 갔다 — 회차마다 다른 필드(비밀번호 공백만 → 저장 토큰 빈 값 →
+로그인 길이 초과)가 새로 나왔다.
+
+- Plan 의 `design.inputs` 를 **필드 단위로 전부** 나열하고, 필드마다 §2-1 의 해당 행을 모두 대본다.
+  같은 필드가 여러 화면·흐름(예: 가입과 로그인)에 쓰이면 **흐름마다 따로** 본다
+- 칸마다 `covered`(덮는 SC-ID) / `missing` / `n/a`(이유) 중 하나를 적어 `v11_matrix` 로 낸다
+- `detail` 에는 `missing` 칸을 **전부** 적는다. "등", "예를 들어" 로 줄이지 않는다
+
 ## 판정 기준
 
 - **fail** — V1~V4, **V11** 중 하나라도 위반. 이것들은 다음 Phase를 진행할 수 없게 만든다
@@ -71,6 +83,11 @@ model: sonnet
       "detail": "SC-04 의 Then '결과가 캐시에 저장된다'는 밖에서 관찰할 수 없다. 두 번째 호출의 응답 시간이나 DB 조회 횟수처럼 단언 가능한 형태로 바꿔야 한다."
     }
   ],
+  "v11_matrix": [
+    { "field": "keyword", "flow": "F1", "row": "문자열 최대 길이+1", "state": "covered", "by": ["SC-03"] },
+    { "field": "keyword", "flow": "F1", "row": "공백만", "state": "missing" },
+    { "field": "page", "flow": "F1", "row": "음수", "state": "n/a", "reason": "서버가 기본값으로 대체 — Plan inputs 에 명시" }
+  ],
   "overall": {
     "pass": true,
     "fail_count": 0,
@@ -80,7 +97,7 @@ model: sonnet
 }
 ```
 
-`checks` 에는 **10개 항목을 전부** 넣는다. 해당 없는 항목은 `verdict: "n/a"` 와 이유를 적는다.
+`checks` 에는 **11개 항목을 전부** 넣는다. 해당 없는 항목은 `verdict: "n/a"` 와 이유를 적는다.
 
 ## 하지 말 것
 

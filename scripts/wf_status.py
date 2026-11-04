@@ -14,6 +14,7 @@ memory-bank/index.md 는 파생물이라 재생성 전까지 낡아 있을 수 �
     python scripts/wf_status.py --active     # 활성/차단만
     python scripts/wf_status.py --stale-days 14
     python scripts/wf_status.py --proposals      # 미반영 회고 개선안 전체
+    python scripts/wf_status.py --retros         # 승인 대기 회고 목록 (/wf-retro 가 쓴다)
 
 이 스크립트가 하지 않는 것
 -------------------------
@@ -31,8 +32,10 @@ from datetime import date, datetime
 from _utils import (
     PHASE_NAMES,
     RECURRING_THRESHOLD,
+    artifact_path,
     display_text,
     list_tasks,
+    load_json,
     load_rule_proposals,
     recurring_proposals,
     saved_checkpoints,
@@ -81,6 +84,34 @@ def collect(stale_days: int) -> dict:
             t for t in tasks if t["status"] not in ("ACTIVE", "BLOCKED", "DONE")
         ],
     }
+
+
+def unreviewed_retros(done: list[dict]) -> list[dict]:
+    """닫혔지만 회고 승인(HITL#4)을 아직 받지 않은 태스크.
+
+    HITL#4 는 비동기다 — 태스크는 회고 초안만으로 닫히고 승인은 /wf-retro 에서 모아서 받는다.
+    여기서 보이지 않으면 승인 대기 회고가 쌓여도 아무도 모른다.
+    """
+    pending = []
+    for task in done:
+        reflect, _ = load_json(artifact_path(task["task_id"], "5"))
+        if not isinstance(reflect, dict):
+            continue
+        if (reflect.get("completion_report") or {}).get("approved_by_human") is not True:
+            pending.append({"task_id": task["task_id"], "title": task["title"]})
+    return sorted(pending, key=lambda t: t["task_id"])
+
+
+def render_retros(pending: list[dict], full: bool) -> str:
+    if not pending:
+        return ""
+    lines = ["", f"회고 승인 대기 {len(pending)}건 — /wf-retro 로 모아서 검토합니다"]
+    shown = pending if full else pending[:5]
+    for task in shown:
+        lines.append(f"  {task['task_id']:<12} {display_text(task['title'], 40)}")
+    if len(pending) > len(shown):
+        lines.append(f"  ... 외 {len(pending) - len(shown)}건 (python scripts/wf_status.py --retros)")
+    return "\n".join(lines)
 
 
 def render(groups: dict, active_only: bool) -> str:
@@ -173,10 +204,12 @@ def main() -> int:
         help=f"정체 판정 기준 일수 (기본 {DEFAULT_STALE_DAYS})",
     )
     parser.add_argument("--proposals", action="store_true", help="미반영 회고 개선안을 전부 표시")
+    parser.add_argument("--retros", action="store_true", help="승인 대기 회고를 전부 표시")
     args = parser.parse_args()
 
     groups = collect(args.stale_days)
     proposals = load_rule_proposals()
+    retros = unreviewed_retros(groups["done"])
 
     if args.json:
         payload = dict(groups)
@@ -186,10 +219,14 @@ def main() -> int:
             "pending": [p for p in proposals if p["status"] == "pending"],
             "recurring": recurring_proposals(proposals),
         }
+        payload["unreviewed_retros"] = retros
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
     print(render(groups, args.active))
+    block = render_retros(retros, args.retros)
+    if block:
+        print(block)
     block = render_proposals(proposals, args.proposals)
     if block:
         print(block)

@@ -78,7 +78,7 @@ Phase 2a/2b의 산출물에는 방향이 있다.
 SCENARIO_<ID>.md      ← SoT. 사람이 편집한다.
       │ 파생
       ▼
-SCENARIO_<ID>.json    ← HITL#1 시점 스냅샷
+SCENARIO_<ID>.json    ← 독립검증 통과 시점 스냅샷 (승인은 2b 끝 통합 HITL)
       │ supersede
       ▼
 TEST_<ID>.json        ← 최종 파생물

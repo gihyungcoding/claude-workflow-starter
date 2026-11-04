@@ -1,9 +1,10 @@
 ---
 name: wf-reflect
 description: >-
-  Phase 5 — KPT 회고를 하고 규칙 개선안을 도출한 뒤 사람 승인(HITL#4)을 받아 태스크를 닫는다.
-  Use when Phase 5를 시작할 때, "회고", "KPT", "reflect", "태스크 마무리" 요청을 받을 때,
-  또는 Phase 4 검증이 승인됐을 때.
+  Phase 5 — KPT 회고와 규칙 개선안을 쓰고 승인을 기다리지 않고 태스크를 닫는다. 사람 승인
+  (HITL#4)은 /wf-retro 에서 여러 태스크의 회고를 모아 받는다. Use when Phase 5를 시작할 때,
+  "회고", "KPT", "reflect", "태스크 마무리" 요청을 받을 때, Phase 4 검증이 승인됐을 때, 또는
+  "회고 승인", "회고 검토", "/wf-retro" 요청을 받을 때.
 ---
 
 # Phase 5 — Reflection
@@ -17,20 +18,22 @@ description: >-
 3. 거절·재시도가 있었으면 그 원인을 분석한다
 4. **이번 태스크의 결정 중 ADR 승격 대상이 있는지 판정한다**
 5. **아키텍처 문서와 실제 코드의 괴리(drift)를 확인한다**
-6. HITL#4 승인 후 태스크를 `DONE` 으로 닫는다
+6. **HITL#4 를 기다리지 않고** 태스크를 `DONE` 으로 닫는다. 회고 승인은 비동기다 —
+   「일괄 검토」에서 여러 태스크를 모아 받는다
 
 ## FORBIDDEN
 
 1. ❌ 일반론 쓰기 — "테스트를 잘 쓰자" 같은 항목은 아무것도 바꾸지 않는다
 2. ❌ 이 태스크에서 일어나지 않은 일을 회고하기
-3. ❌ 승인 없이 태스크 종료
+3. ❌ **`approved_by_human` 을 스스로 `true` 로 쓰기** — 「일괄 검토」에서 `AskUserQuestion`
+   응답을 받은 뒤에만 쓴다. 태스크를 닫는 것과 회고를 승인받는 것은 다른 일이다
 4. ❌ Problem 항목을 빼고 좋은 것만 쓰기
 
 ## EXIT GATE
 
 - `workflow_design/08_reflect/REFLECT_<ID>.json` 존재
 - `keep.length >= 1`, `insights.length >= 1`
-- `completion_report.approved_by_human == true`
+- `completion_report.approved_by_human == false` — 승인은 「일괄 검토」에서 채운다
 - `CP-5.2` 저장
 - **Phase 1~5의 모든 산출물과 체크포인트가 커밋됨**
 - **`tasks.json` 의 `status` 가 `done`** — memory-bank 만 DONE 이면 태스크가 닫힌 게 아니다
@@ -164,13 +167,13 @@ KPT 는 `REFLECT_<ID>.json` 에 들어가므로 따로 저장하지 않는다.
 python3 scripts/wf_status.py --proposals
 ```
 
-같은 대상에 미반영 제안이 이미 있으면 `recurring` 에 그 수를 적고, **HITL#4 에서 "지금
-반영"을 선택지로 올린다** (Step 6). 같은 파일에 대한 제안이 쌓인다는 건 같은 원인의 재작업이
+같은 대상에 미반영 제안이 이미 있으면 `recurring` 에 그 수를 적고, **일괄 검토에서 "지금
+반영"을 선택지로 올린다** (「일괄 검토」). 같은 파일에 대한 제안이 쌓인다는 건 같은 원인의 재작업이
 계속되고 있다는 뜻이다 — 실사용에서 `coverage-policy.md` 개선이 세 태스크에 걸쳐 제안되는
 동안 같은 원인의 롤백이 반복됐다.
 
 **이 Phase 안에서 문서를 직접 고치지 않는다.** 회고 중에 규칙을 바꾸면 그 변경이 검토를
-거치지 않는다. 반영은 HITL#4 승인 이후 별도 커밋으로 한다.
+거치지 않는다. 반영은 일괄 검토에서 승인을 받은 뒤 별도 커밋으로 한다.
 
 **대상이 워크플로우 자산이면** (`.claude/`, `docs/workflow/`, `scripts/`) 이 프로젝트를 만든
 **스타터에도 같은 변경이 필요하다.** 프로젝트에서만 고치면 다음 프로젝트가 같은 문제를 다시
@@ -219,7 +222,7 @@ python3 scripts/wf_status.py --proposals
 Phase 1~5를 한 장으로 정리해 **Artifact로 발행**한다. 터미널 스크롤백에만 남기지 않는다 —
 회고는 나중에 다시 볼 자료다.
 
-**`track: light` 면 이 Step 을 건너뛴다.** REFLECT JSON 과 HITL#4 요약으로 충분하다
+**`track: light` 면 이 Step 을 건너뛴다.** REFLECT JSON 과 일괄 검토 요약으로 충분하다
 (→ `wf-orchestrator` 「경량 경로」).
 
 담을 것: 태스크 개요 / Phase별 진행과 재시도 / 변경 파일 / 테스트·검증 결과 /
@@ -230,39 +233,15 @@ KPT / 규칙 개선안.
 > 원본 저장소는 이 리포트를 605줄짜리 렌더러 스크립트 + HTML 템플릿으로 만들고, 바이트 단위
 > 대조까지 EXIT GATE에 넣고 있었다. Artifact가 그 일을 대신하므로 스크립트를 두지 않는다.
 
-### Step 6 — HITL #4
+### Step 6 — 태스크 종료
 
-```
-Phase 5 — TASK-001 회고
+**HITL#4 를 기다리지 않는다.** 회고 승인은 다음 태스크를 막을 이유가 없다. 실사용에서 회고
+초안이 끝난 뒤 승인까지 몇 시간씩 걸렸는데(TASK-012 는 3시간 20분), 그동안 태스크가 열려
+있어 Ship 도 다음 태스크도 밀렸다. 규칙 개선 제안은 이미 `pending` 으로 쌓였다가 모아서
+반영되고 있었다.
 
-  Keep 2 / Problem 1 / Try 1
-  재시도       Phase 2a 1회 (독립검증 지적)
-  ADR 승격     1건 — "캐시 무효화 전략"
-  아키텍처 drift 0건
-  규칙 개선안   1건 — docs/workflow/task-schema.md
-  ⚠ 반복       wf-plan 에 미반영 제안 3건째 (TASK-004 · 006 · 이번)
-
-  리포트: <Artifact 링크>
-```
-
-`AskUserQuestion`:
-
-- **승인하고 종료** → 태스크를 DONE으로
-- **승인 + ADR 작성** → 종료 후 `/wf-adr` 로 승격 후보를 기록한다
-- **회고 보완** → 현 Phase 유지, 무엇을 보완할지 받는다
-- **제안만 반려** → 회고는 승인하되 ADR·규칙 제안은 폐기 (`status: rejected`)
-- **승인 + 반복 제안 지금 반영** → `recurring` 이 있을 때만 제시한다. 종료 후 해당 대상의
-  미반영 제안을 **이번 것과 이전 것 모두** 한 커밋으로 반영한다
-
-반영했으면 해당 REFLECT 들의 제안에 `"status": "applied", "applied_in": "<커밋 해시>"` 를
-적는다. 적지 않으면 `/wf-status` 가 계속 미반영으로 센다.
-
-### Step 7 — 태스크 종료
-
-승인 후:
-
-1. `completion_report.approved_by_human = true`
-2. `CP-5.2` 갱신
+1. `completion_report.approved_by_human` 은 `false` 그대로 둔다
+2. `CP-5.2` 갱신 — `next_steps` 에 "회고 승인 대기 — /wf-retro"
 3. `activeContext.md` 의 `status` 를 `DONE` 으로
 4. 체크포인트들의 `status` 를 `ARCHIVED` 로
 5. `python scripts/rebuild_memory_bank_index.py`
@@ -280,7 +259,7 @@ Phase 5 — TASK-001 회고
 
 ```bash
 git add workflow_design/ memory-bank/
-git commit -m "chore(workflow): TASK-001 회고 완료 및 태스크 종료
+git commit -m "chore(workflow): TASK-001 회고 작성 및 태스크 종료
 
 Refs: TASK-001"
 ```
@@ -291,17 +270,97 @@ Refs: TASK-001"
 **태스크 폴더를 지우지 않는다.** 과거 결정 기록은 비슷한 작업에서 같은 논의를 반복하지 않게
 해주는 자산이다.
 
-### Step 8 — Ship 안내
+### Step 7 — Ship 안내
 
 태스크가 `DONE` 이어도 **머지되지 않으면 릴리스에 포함되지 않는다.** 회고를 마치면
-다음 단계를 안내한다.
+다음 단계를 안내한다. 회고 요약도 여기서 한 번 보여준다. 승인 요청은 아니고, 사람이 나중에
+일괄 검토할 때 무엇이 기다리는지 미리 알게 하려는 것이다.
 
 ```
-TASK-001 완료 — 회고 승인됨
+TASK-001 완료 — 회고 승인 대기
+
+  Keep 2 / Problem 1 / Try 1
+  ADR 승격 후보 1건 · 규칙 개선안 1건 (⚠ wf-plan 반복 3건째)
+  리포트: <Artifact 링크>
 
 다음: /wf-ship 으로 머지를 준비하세요.
-      Ship 이 승인한 코드가 그대로인지 대조한 뒤 PR 을 만듭니다.
+      회고 승인은 /wf-retro 로 나중에 모아서 받습니다.
 ```
 
-여기서 커밋을 하나 더 하게 되지만(회고 산출물), 그것은 신선도 판정에 영향을 주지 않는다 —
-`check_freshness.py` 는 워크플로우 산출물이 아닌 소스 변경만 본다.
+회고 산출물 커밋은 신선도 판정에 영향을 주지 않는다 — `check_freshness.py` 는 워크플로우
+산출물이 아닌 소스 변경만 본다.
+
+---
+
+## 일괄 검토 (HITL #4) — `/wf-retro`
+
+닫힌 태스크 중 회고 승인을 받지 않은 것을 모아 한 번에 승인받는다. 사용자가 `/wf-retro` 나
+"회고 승인"을 요청할 때 한다. 태스크 Phase 안의 단계가 아니다.
+
+**1. 대상을 모은다.**
+
+```bash
+python3 scripts/wf_status.py --retros            # 승인 대기 회고
+python3 scripts/wf_status.py --proposals         # 미반영 규칙 제안 · 반복
+```
+
+대기 회고가 없으면 그렇게 말하고 끝낸다.
+
+**2. 작업 브랜치를 만든다.** 대상 태스크의 feature 브랜치는 이미 머지됐을 수 있다. 기준
+브랜치에서 `chore/retro-<YYYYMMDD>` 를 갈라낸다.
+
+**3. 태스크마다 요약을 보여준다.** 요약은 오래된 태스크부터 보여준다.
+
+```
+회고 일괄 검토 — 3건
+
+TASK-001  매장 검색 권한 필터
+  Keep 2 / Problem 1 / Try 1
+  재시도       Phase 2a 1회 (독립검증 지적)
+  ADR 승격     1건 — "캐시 무효화 전략"
+  아키텍처 drift 0건
+  규칙 개선안   1건 — docs/workflow/task-schema.md
+  리포트: <Artifact 링크>
+
+TASK-002  …
+```
+
+반복 제안(`recurring`)은 태스크별이 아니라 **대상 파일별로 묶어** 마지막에 보여준다.
+
+**4. `AskUserQuestion` 으로 받는다.** 한 번에 질문 4개까지 보낼 수 있으므로 태스크 하나당
+질문 하나로 나눈다. 4건을 넘으면 나눠서 묻는다. 반복 제안이 있으면 마지막 질문으로 붙인다.
+
+태스크마다 선택지:
+
+- **승인** → `approved_by_human = true`
+- **승인 + ADR 작성** → 승인 후 `/wf-adr` 로 승격 후보를 기록한다
+- **회고 보완** (`REVISION_NEEDED`) → 무엇을 보완할지 받아 REFLECT 를 고친 뒤 그 태스크만 다시 묻는다
+- **제안만 반려** → 회고는 승인하되 ADR·규칙 제안은 폐기한다 (`status: rejected`)
+
+반복 제안이 있을 때 붙이는 질문은 **지금 반영 / 다음에**다. "지금 반영"이면 대상 파일의 미반영
+제안을 **모든 태스크 것을 한꺼번에** 한 커밋으로 반영한다. 대상이 워크플로우 자산이면
+스타터에도 같은 변경이 필요하다는 것을 알린다 (Step 3-3).
+
+**5. 기록하고 커밋한다.**
+
+```jsonc
+"completion_report": {
+  "approved_by_human": true,
+  "reviewed_at": "2026-11-05T10:30:00Z",
+  "reviewed_in": "batch",            // 일괄 검토에서 승인했다는 표시
+  "note": "사람의 코멘트가 있으면"
+}
+```
+
+반영한 제안에는 `"status": "applied", "applied_in": "<커밋 해시>"` 를 적는다. 적지 않으면
+`/wf-status` 가 계속 미반영으로 센다. 제안 반영 커밋과 승인 기록 커밋은 나눈다.
+
+```bash
+git add workflow_design/08_reflect
+git commit -m "chore(workflow): 회고 3건 일괄 승인
+
+Refs: TASK-001, TASK-002, TASK-003"
+```
+
+푸시와 PR 생성은 사람이 한다 — 명령만 제시한다 (절대 규칙 9). 태스크 Ship 이 아니므로
+`/wf-ship`·`ship_preflight.py` 의 대상이 아니다.
