@@ -44,7 +44,7 @@
 | 5 | `phase5/CP-5.2_context-reflect.md` |
 
 **Phase 를 진행하면서 같은 파일을 덮어쓴다.** 저장할 때마다 커밋하므로 이전 내용은 git 에
-남는다. 시나리오를 쓴 뒤, 독립검증을 받은 뒤, HITL#1 승인을 받은 뒤 — 모두 같은
+남는다. 시나리오를 쓴 뒤, 독립검증 1회차 뒤, 통과한 뒤 — 모두 같은
 `CP-2.2` 를 갱신한다.
 
 > 파일명에 번호(1.3, 2.2 …)가 남아 있는 것은 v1 과의 호환 때문이다. 이미 만들어진
@@ -58,11 +58,11 @@
 ---
 status: ACTIVE                       # ACTIVE | ARCHIVED
 saved_at: 2026-10-13T10:30:00Z
-summary: "시나리오 6건 작성, 독립검증 통과(경고 2 반영). HITL#1 대기"
+summary: "시나리오 6건 작성, 독립검증 통과(경고 2 반영, 1 보류)"
 
 next_steps:
-  - "HITL#1 — 시나리오 6건 승인 받기"
-  - "승인되면 SCENARIO_TASK-001.json 의 generate_red_trigger 를 true 로"
+  - "Phase 2b — 시나리오 6건을 Red 테스트로 옮기기"
+  - "2b 끝 통합 HITL 요약에 보류한 경고 1건(SC-04 Then)을 보여주기"
 
 decisions:                           # 없으면 [] 를 명시한다
   - decision: "페이지 경계 시나리오를 1건으로 통합"
@@ -116,7 +116,7 @@ attempts:
     outcome: "Phase 4 FAIL — title 200자 초과 시 500, sections 의 null 원소"
     back_to: "2a"
   - n: 2
-    outcome: "HITL#1 거절 — 동시 위반 시 우선순위 시나리오 누락"
+    outcome: "통합 HITL(2b) 거절 — 동시 위반 시 우선순위 시나리오 누락"
     back_to: "2a"
 ```
 

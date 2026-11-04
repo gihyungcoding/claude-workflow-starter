@@ -13,7 +13,7 @@
     constraints   docs/architecture/constraints.yaml
     gate-config   린트·타입·포맷 설정 (eslint, tsconfig, prettier, biome, ruff, mypy,
                   checkstyle, .pre-commit-config.yaml)
-    approved-test HITL#2 에서 승인된 Red 테스트 (TEST_<ID>.json 의 test_files)
+    approved-test 통합 HITL(#1·2)에서 승인된 Red 테스트 (TEST_<ID>.json 의 test_files)
 
 언제 묻나 — Phase 3·4 의 ACTIVE 태스크가 있을 때만
 ------------------------------------------------
@@ -104,7 +104,7 @@ def guarded_tasks() -> list[dict]:
 
 
 def approved_test_files(task_id: str) -> set[str]:
-    """HITL#2 에서 승인된 Red 테스트 경로. 승인 전이거나 읽을 수 없으면 빈 집합."""
+    """통합 HITL(#1·2)에서 승인된 Red 테스트 경로. 승인 전이거나 읽을 수 없으면 빈 집합."""
     path = artifact_path(task_id, "2b")
     if path is None:
         return set()
@@ -162,7 +162,7 @@ def reason_for(kind: str, rel: str, task: dict) -> str:
             "  이 태스크의 범위에 필요한 변경이면 승인한다."
         )
     return (
-        f"HITL#2 에서 승인된 테스트 수정: {rel}\n"
+        f"통합 HITL(#1·2)에서 승인된 테스트 수정: {rel}\n"
         f"  {where}. 단언 약화·skip·기대값 변경으로 통과시키는 것은 금지다(wf-develop).\n"
         "  시나리오 자체가 틀렸다면 Phase 2a/2b 로 되돌아가 다시 승인받는다."
     )

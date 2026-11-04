@@ -1,8 +1,8 @@
 ---
 name: wf-scenario
 description: >-
-  Phase 2a — Given/When/Then 시나리오를 설계하고 독립검증자에게 검증받은 뒤 사람 승인(HITL#1)을
-  받는다. Use when Phase 2a를 시작할 때, "시나리오 설계", "GWT 작성", "테스트 케이스 도출"
+  Phase 2a — Given/When/Then 시나리오를 설계하고 독립검증자에게 검증받는다. 사람 승인(HITL#1)은
+  Red 테스트와 함께 Phase 2b 끝에서 받는다. Use when Phase 2a를 시작할 때, "시나리오 설계", "GWT 작성", "테스트 케이스 도출"
   요청을 받을 때, 또는 Phase 1 설계가 끝나 Red 코드 이전 단계로 넘어갈 때.
 ---
 
@@ -21,14 +21,15 @@ Plan의 `flows` 를 **검증 가능한 Given/When/Then**으로 옮긴다. 이 �
 4. `SCENARIO_<ID>.md` 를 SoT로 쓴다. JSON은 MD에서 파생시킨다
 5. **독립검증자 서브에이전트**를 호출한다 (`scenario-validator`)
 6. 검증자 응답을 `VALIDATION_<ID>.json` 에 **가공 없이 그대로** 저장한다
-7. HITL#1 승인을 `AskUserQuestion` 으로 받는다
+7. 독립검증을 통과하면 **사람을 부르지 않고** Phase 2b 로 넘어간다. 시나리오 승인(HITL#1)은
+   Red 테스트 승인(HITL#2)과 합쳐 2b 끝에서 한 번 받는다 (→ `wf-red` Step 6)
 
 ## FORBIDDEN
 
 1. ❌ **자기 검증** — 스스로 "검증 통과"라고 판정하고 넘어가기. 검증자는 별도 에이전트다
 2. ❌ 검증자 응답에서 불리한 항목만 빼고 저장하기
 3. ❌ Then에 **관찰할 수 없는 것**을 쓰기 (예: "내부적으로 캐시된다")
-4. ❌ 승인 없이 Phase 2b 진입
+4. ❌ 독립검증 통과 없이 Phase 2b 진입
 5. ❌ 시나리오를 구현 방식으로 쓰기 (→ `references/gwt-canonical.md`)
 
 ## EXIT GATE
@@ -37,8 +38,8 @@ Plan의 `flows` 를 **검증 가능한 Given/When/Then**으로 옮긴다. 이 �
 - `scenarios.length ≥ 2`, happy ≥ 1, error ≥ 1
 - 모든 `acceptance_criteria` 가 최소 1개 시나리오에 매핑됨
 - `validator/VALIDATION_<ID>.json` 의 `overall.pass == true`
-- `human_input.generate_red_trigger == true`
-- `CP-2.2` 저장 및 커밋 — 시나리오 작성·독립검증·HITL#1 승인마다 **같은 파일을 갱신**한다
+- `CP-2.2` 저장 및 커밋 — 시나리오 작성·독립검증마다 **같은 파일을 갱신**한다
+- `human_input.generate_red_trigger` 는 `false` 로 둔다 — 2b 끝의 통합 승인에서 채운다
 
 ```bash
 python scripts/validate_phase2a_gate.py --task-id TASK-001    # exit 0 이어야 함
@@ -155,7 +156,7 @@ TASK-001 의 시나리오를 검증해주세요.
   지적된 필드와 **같은 종류의 다른 필드·다른 흐름**(가입에서 빠졌으면 로그인도)을 직접 대조한
   뒤 재검증한다. 지적된 칸만 고치면 다음 회차에 옆 칸이 새 누락으로 나온다(→ TASK-010 5회차)
 - `overall.pass == true` 이고 **경고만** 있으면 **재검증하지 않는다.** 반영할 경고를 고치고
-  HITL#1 요약에 무엇을 반영·보류했는지 적는다. 경고는 사람이 판단할 몫이다 — 경고를
+  통합 HITL(2b 끝) 요약에 무엇을 반영·보류했는지 적는다. 경고는 사람이 판단할 몫이다 — 경고를
   고칠 때마다 검증자를 다시 부르면 같은 시나리오를 세 번 검증하게 된다
 - 3회를 넘으면 Phase 1 롤백을 사용자에게 제안한다 (→ `docs/workflow/reject-state-machine.md`)
 
@@ -167,43 +168,28 @@ TASK-001 의 시나리오를 검증해주세요.
 `CP-2.2` 를 갱신한다 — 검증 결과 원문은 `VALIDATION_<ID>.json` 에 있으므로 `summary` 한 줄과
 반영하기로 한 경고만 `decisions` 에 적는다.
 
-### Step 5 — HITL #1
+### Step 5 — Phase 2b 로 넘기기
 
-검증까지 끝나면 사람에게 승인을 받는다 (→ `docs/workflow/hitl-protocol.md` §2).
+**여기서 사람을 부르지 않는다.** 시나리오만 보고 승인하던 HITL#1 은 Red 테스트와 합쳐졌다.
+14개 태스크에서 HITL#2 는 한 번도 거절되지 않았고, 두 승인 사이 대기만 태스크당 15~30분이었다.
+사람은 2b 끝에서 시나리오와 그것을 옮긴 테스트를 나란히 보고 한 번에 판단한다.
 
-먼저 요약을 출력한다:
+그 대신 **사람에게 보일 것을 지금 정리해 둔다.** 통합 HITL 요약이 그대로 가져다 쓴다.
 
-```
-Phase 2a — TASK-001
-
-시나리오 6건 (happy 3 / error 2 / boundary 1)
-  SC-01  담당 매장이 검색된다
-  SC-02  담당하지 않는 매장은 403
-  ...
-
-커버리지  acceptance_criteria 3/3
-독립검증  PASS
-  경고 1건 — SC-04 의 Then "캐시에 저장된다"는 관찰 불가
-
-전문: workflow_design/05_scenario/SCENARIO_TASK-001.md
-```
-
-그다음 `AskUserQuestion`:
-
-- **승인** → Phase 2b로
-- **시나리오 보완** → Step 2로 (무엇을 고칠지 받는다)
-- **설계로 롤백** → Phase 1로
-
-승인을 받으면:
-1. `SCENARIO_<ID>.json` 의 `human_input.generate_red_trigger = true`
-2. `CP-2.2` 갱신 — `next_steps` 를 Phase 2b 로 (승인 사실은 1번 필드가 정본이다)
-3. `activeContext.md` 갱신
-4. 커밋
+- 반영한 경고와 보류한 경고 — `CP-2.2` 의 `decisions`
+- 검증자 회차 수와 회차마다 무엇이 FAIL 이었는지 — `CP-2.2` 의 `attempts`
 
 ```bash
-python scripts/validate_phase2a_gate.py --task-id TASK-001
+python scripts/validate_phase2a_gate.py --task-id TASK-001     # exit 0 — HITL 조건은 아직 안 본다
 git add workflow_design/05_scenario memory-bank/TASK-001
-git commit -m "chore(workflow): TASK-001 Phase 2a 시나리오 승인
+git commit -m "chore(workflow): TASK-001 Phase 2a 시나리오 독립검증 통과
 
 Refs: TASK-001"
 ```
+
+`CP-2.2` 의 `next_steps` 를 Phase 2b 로 바꾸고 `activeContext.md` 를 갱신한 뒤 `wf-red` 로 간다.
+
+**시나리오에 사람이 정해야 할 질문이 있으면** 넘어가기 전에 묻는다. 예: 정책이 두 가지로 읽히는데
+Plan 이 정하지 않았다. 이것은 승인이 아니라 질문이므로 `AskUserQuestion` 으로 묻고 답을
+`decisions` 에 적는다. 승인 필드는 쓰지 않는다. 답에 따라 테스트가 달라지는 질문을 2b 끝까지
+미루면 Red 작업을 버리게 된다.

@@ -1,6 +1,12 @@
 # HITL 프로토콜
 
-워크플로우가 사람의 판단을 기다리는 4개 지점과, 그 승인/거절을 기록하는 방법이다.
+워크플로우가 사람의 판단을 받는 지점과, 그 승인/거절을 기록하는 방법이다.
+
+> **v3 에서 바뀐 점**
+> HITL#1(시나리오)과 HITL#2(Red)를 2b 끝의 한 번으로 합쳤다. 14개 태스크에서 HITL#2 는
+> 한 번도 거절되지 않았고, 두 승인 사이 대기만 태스크당 15~30분이었다. HITL#4(회고)는
+> 비동기로 바꿨다 — 태스크는 회고 초안만으로 닫히고, 승인은 `/wf-retro` 에서 모아 받는다.
+> 기록 필드는 그대로다. 과거 산출물과 스크립트가 같은 필드를 읽는다.
 
 > **원본에서 바뀐 점**
 > 원본은 "승인/통과/LGTM/진행/OK"를 AI가 해석해 6개 상태로 매핑하는 **자연어 파싱 규칙**을
@@ -9,19 +15,19 @@
 
 ---
 
-## 1. HITL 지점 4개
+## 1. HITL 지점
 
-| # | Phase | 무엇을 검토하나 | 승인 기록 — **여기가 정본** |
-|---|---|---|---|
-| **1** | 2a | Canonical 시나리오 + 독립검증 결과 | `SCENARIO_<ID>.json` → `human_input.generate_red_trigger: true` |
-| **2** | 2b | Red 테스트 코드 | `TEST_<ID>.json` → `human_review.approved: true` |
-| **3** | 4 | 검증 리포트 | `VERIFY_<ID>.json` → `human_review.decision` |
-| **4** | 5 | 회고 + 완료 리포트 | `REFLECT_<ID>.json` → `completion_report.approved_by_human: true` |
+| # | 언제 | 무엇을 검토하나 | 승인 기록 — **여기가 정본** | 다음 Phase 를 막는가 |
+|---|---|---|---|---|
+| **1·2** | 2b 끝 | 시나리오 + 독립검증 결과 + Red 테스트 코드 | `SCENARIO_<ID>.json` → `human_input.generate_red_trigger: true` **그리고** `TEST_<ID>.json` → `human_review.approved: true` — 한 번의 응답으로 둘 다 쓴다 | 막는다 |
+| **3** | 4 | 검증 리포트 | `VERIFY_<ID>.json` → `human_review.decision` | 막는다 |
+| **4** | `/wf-retro` | 회고 + 완료 리포트 (여러 태스크를 모아) | `REFLECT_<ID>.json` → `completion_report.approved_by_human: true` | **막지 않는다** — 태스크는 이미 닫혔다 |
 
 > v1 은 승인마다 별도 체크포인트(`CP-2.4`·`2.6`·`4.3`·`5.3`)를 하나씩 더 만들었다.
 > 위 필드와 같은 사실을 두 번 적은 것이라 v2 에서 없앴다 (→ `checkpoint-template.md`).
 
-**HITL 승인 없이 다음 Phase로 넘어갈 수 없다.** 각 Phase의 EXIT GATE가 이 필드를 확인한다.
+**막는 HITL 의 승인 없이 다음 Phase로 넘어갈 수 없다.** 각 Phase의 EXIT GATE가 이 필드를 확인한다.
+HITL#4 는 막지 않지만 **사람 승인이라는 점은 같다** — 에이전트가 대신 채우지 않는다.
 
 ---
 
@@ -34,7 +40,7 @@ HITL 지점에 도달하면 **먼저 검토 자료를 제시하고**, 그 다음
 터미널에 요약을 출력한다. 사람이 스크롤 없이 판단할 수 있는 분량이어야 한다.
 
 ```
-Phase 2a 완료 — TASK-001
+Phase 2a·2b — TASK-001
 
 시나리오 6건 (happy 3 / error 2 / boundary 1)
   SC-01  검색어가 매장명과 일치하면 해당 매장이 반환된다
@@ -54,14 +60,16 @@ Phase 4·5처럼 자료가 길고 표·차트가 있으면 **Artifact로 발행*
 ```
 AskUserQuestion({
   questions: [{
-    header: "시나리오 승인",
-    question: "Phase 2a 시나리오 6건을 승인하고 Red 코드 생성으로 넘어갈까요?",
+    header: "시나리오·Red",
+    question: "시나리오 6건과 Red 테스트 6개를 승인하고 구현으로 넘어갈까요?",
     multiSelect: false,
     options: [
       { label: "승인",
-        description: "시나리오를 확정하고 Phase 2b(Red 코드 생성)로 진행합니다." },
+        description: "시나리오와 테스트를 확정하고 Phase 3(구현)으로 진행합니다." },
+      { label: "테스트 수정",
+        description: "시나리오는 맞고 테스트가 틀렸습니다. Phase 2b 에서 고칩니다." },
       { label: "시나리오 보완",
-        description: "이 Phase에 머물며 시나리오를 수정합니다. 무엇을 고칠지 알려주세요." },
+        description: "시나리오를 고칩니다. 검증자를 다시 거치고 테스트도 다시 옮깁니다." },
       { label: "설계로 롤백",
         description: "Phase 1 설계에 문제가 있습니다. Plan 단계로 되돌아갑니다." }
     ]
@@ -78,10 +86,10 @@ AskUserQuestion({
 | decision | 의미 | 허용 Phase | 다음 동작 |
 |---|---|---|---|
 | `APPROVE` | 승인 | 전부 | 다음 Phase로 |
-| `REJECT` | 거절 → 재작업 | 2a, 2b, 4 | reject type 판정 (→ `reject-state-machine.md`) |
-| `CLARIFY` | 질문 있음, 결정 보류 | **2a만** | 현 Phase 유지, 대화 계속 |
+| `REJECT` | 거절 → 재작업 | 2b 통합, 4 | reject type 판정 (→ `reject-state-machine.md`) |
+| `CLARIFY` | 질문 있음, 결정 보류 | **2b 통합만** | 현 Phase 유지, 대화 계속 |
 | `EXCEPTION_APPROVE` | 경고를 알고도 승인 | **4만, status=WARN일 때만** | 예외 항목 기록 후 다음 Phase로 |
-| `REVISION_NEEDED` | 내용 보완 요청 | **5만** | 현 Phase 유지, 회고 보완 |
+| `REVISION_NEEDED` | 내용 보완 요청 | **`/wf-retro` 만** | 그 REFLECT 만 보완하고 다시 묻는다 |
 
 `EXCEPTION_APPROVE` 는 `VERIFY_<ID>.json` 의 `status` 가 `WARN` 일 때만 쓸 수 있다.
 `FAIL` 상태에서는 예외 승인이 불가능하다 — 그건 Phase 3으로 되돌아가야 하는 상황이다.

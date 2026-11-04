@@ -17,13 +17,12 @@ START
 Phase 1 (Plan) ◄─────────────────────── ROLLBACK_PLAN
   │
   ▼
-Phase 2a (Scenario) ◄──── RETRY_SCENARIO
-  │
-  ├─ HITL #1 ─ REJECT ─┘
-  ▼
-Phase 2b (Red) ◄──── RETRY_RED_CODE
-  │
-  ├─ HITL #2 ─ REJECT ─┘   (또는 RETRY_SCENARIO → 2a로)
+Phase 2a (Scenario) ◄──── RETRY_SCENARIO ──────┐
+  │  (독립검증 통과 — 사람 승인 없음)              │
+  ▼                                               │
+Phase 2b (Red) ◄──── RETRY_RED_CODE               │
+  │                                               │
+  ├─ HITL #1·2 통합 ─ REJECT ─┴─ 테스트 결함이면 2b, 시나리오 결함이면 2a
   ▼
 Phase 3 (Green)
   │
@@ -34,9 +33,8 @@ Phase 4 (Verify)
   ▼
 Phase 5 (Reflect)
   │
-  ├─ HITL #4 ─ REVISION_NEEDED ─┘  (현 Phase 유지)
   ▼
-DONE
+DONE ── 나중에 /wf-retro (HITL #4, 비동기) ── REVISION_NEEDED 면 REFLECT 만 보완
 ```
 
 `BLOCKED` 는 어느 Phase에서도 발생할 수 있으며 상태 전이가 아니라 **정지**다.

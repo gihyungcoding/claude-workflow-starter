@@ -74,23 +74,28 @@ class Phase2aGateTest(ProjectTestCase):
         self.project.write_json(f"workflow_design/05_scenario/validator/VALIDATION_{TID}.json", {})
         self.assertEqual(self.gate(), 1)
 
-    def test_hitl_trigger_false_fails(self):
+    # HITL#1 은 2b 끝의 통합 승인에서 기록된다 — 2a 를 떠날 때는 보지 않고,
+    # 통합 승인 직후 --require-hitl 로 확인한다.
+    def test_default_gate_does_not_require_hitl(self):
         self.rewrite_scenario(human_input={"generate_red_trigger": False})
-        self.assertEqual(self.gate(), 1)
-
-    def test_hitl_trigger_must_be_boolean_true(self):
-        self.rewrite_scenario(human_input={"generate_red_trigger": "true"})
-        self.assertEqual(self.gate(), 1)
-
-    def test_hitl_trigger_absent_fails(self):
-        self.rewrite_scenario(human_input={})
-        self.assertEqual(self.gate(), 1)
-
-    def test_skip_hitl_ignores_only_the_hitl_condition(self):
-        self.rewrite_scenario(human_input={"generate_red_trigger": False})
-        self.assertEqual(self.gate("--skip-hitl"), 0)
+        self.assertEqual(self.gate(), 0)
         self.project.path(f"workflow_design/05_scenario/validator/VALIDATION_{TID}.json").unlink()
-        self.assertEqual(self.gate("--skip-hitl"), 1, "--skip-hitl 이 독립검증 조건까지 풀면 안 된다")
+        self.assertEqual(self.gate(), 1, "HITL 을 안 본다고 독립검증 조건까지 풀리면 안 된다")
+
+    def test_require_hitl_trigger_false_fails(self):
+        self.rewrite_scenario(human_input={"generate_red_trigger": False})
+        self.assertEqual(self.gate("--require-hitl"), 1)
+
+    def test_require_hitl_trigger_must_be_boolean_true(self):
+        self.rewrite_scenario(human_input={"generate_red_trigger": "true"})
+        self.assertEqual(self.gate("--require-hitl"), 1)
+
+    def test_require_hitl_trigger_absent_fails(self):
+        self.rewrite_scenario(human_input={})
+        self.assertEqual(self.gate("--require-hitl"), 1)
+
+    def test_require_hitl_trigger_true_passes(self):
+        self.assertEqual(self.gate("--require-hitl"), 0)
 
     def test_uncovered_acceptance_criterion_fails(self):
         self.rewrite_scenario(
@@ -211,30 +216,44 @@ class ShipPreflightTest(ProjectTestCase):
 
         self.sp = ship_preflight
 
-    def reflect(self, approved: bool) -> None:
+    def reflect(self, approved: bool, status: str = "DONE") -> None:
         self.project.write(
             f"memory-bank/{TID}/activeContext.md",
-            f"---\ntask_id: {TID}\nphase: \"5\"\nstatus: ACTIVE\n---\n",
+            f"---\ntask_id: {TID}\nphase: \"5\"\nstatus: {status}\n---\n",
         )
         self.project.write_json(
             f"workflow_design/08_reflect/REFLECT_{TID}.json",
             {"completion_report": {"approved_by_human": approved}},
         )
 
-    def test_phase5_requires_human_approval(self):
+    # HITL#4 는 비동기다 — 회고가 있고 태스크가 닫혔으면 승인 전이어도 Ship 할 수 있다.
+    def test_closed_task_with_unapproved_reflect_passes(self):
         self.reflect(approved=False)
-        self.assertFalse(self.sp.check_phase_complete(TID).ok)
+        check = self.sp.check_phase_complete(TID)
+        self.assertTrue(check.ok)
+        self.assertIn("승인 대기", check.detail)
 
     def test_phase5_approved_passes(self):
         self.reflect(approved=True)
-        self.assertTrue(self.sp.check_phase_complete(TID).ok)
+        check = self.sp.check_phase_complete(TID)
+        self.assertTrue(check.ok)
+        self.assertIn("승인됨", check.detail)
 
-    def test_phase5_approval_must_be_boolean_true(self):
+    def test_approval_must_be_boolean_true_to_show_approved(self):
         self.reflect(approved=True)
         self.project.write_json(
             f"workflow_design/08_reflect/REFLECT_{TID}.json",
             {"completion_report": {"approved_by_human": "true"}},
         )
+        self.assertIn("승인 대기", self.sp.check_phase_complete(TID).detail)
+
+    def test_task_not_closed_cannot_ship(self):
+        self.reflect(approved=True, status="ACTIVE")
+        self.assertFalse(self.sp.check_phase_complete(TID).ok)
+
+    def test_task_without_reflect_cannot_ship(self):
+        self.reflect(approved=True)
+        self.project.path(f"workflow_design/08_reflect/REFLECT_{TID}.json").unlink()
         self.assertFalse(self.sp.check_phase_complete(TID).ok)
 
     def test_blocked_task_cannot_ship_even_if_reflect_approved(self):

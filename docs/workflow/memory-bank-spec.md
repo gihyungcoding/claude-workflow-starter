@@ -155,7 +155,7 @@ python scripts/rebuild_memory_bank_index.py
 
 ## 5. 태스크 종료
 
-Phase 5 승인(HITL#4) 후:
+Phase 5 회고를 저장한 뒤 (HITL#4 는 기다리지 않는다 — `/wf-retro` 에서 나중에 모아 받는다):
 
 1. `activeContext.md` 의 `status` 를 `DONE` 으로
 2. 체크포인트들의 `status` 를 `ARCHIVED` 로

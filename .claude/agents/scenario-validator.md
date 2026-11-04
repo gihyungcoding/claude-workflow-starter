@@ -3,7 +3,7 @@ name: scenario-validator
 description: >-
   Phase 2a 시나리오를 독립적으로 검증한다. 시나리오가 Plan의 입출력·흐름과 대응하는지,
   acceptance_criteria 를 덮는지, Then 이 관찰 가능한지를 확인하고 구조화된 판정을 낸다.
-  wf-scenario 스킬이 HITL#1 이전에 호출한다.
+  wf-scenario 스킬이 Phase 2b 로 넘기기 전에 호출한다.
 tools: Read, Grep, Glob
 model: sonnet
 ---

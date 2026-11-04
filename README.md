@@ -6,11 +6,14 @@ Skills / Subagents / Hooks / Slash Commands 로 구성했고, 스택에 종속�
 ```
 Foundation (프로젝트 수준)        Workflow (태스크마다)
   product.md                       Plan → Scenario → Red → Green → Verify → Reflect → Ship
-  architecture.md ────참조────►            HITL#1    HITL#2       HITL#3   HITL#4     │
+  architecture.md ────참조────►            검증      HITL#1·2     HITL#3   (HITL#4)   │
   constraints.yaml ───검증────►                                      │        │        ▼
   ADR-*.md         ◄──────────────── ADR 제안 ─────────────────────────────────┘      PR
   features/*.md ──── §1-2 표 ────► tasks.json
 ```
+
+HITL#1(시나리오)과 #2(Red)는 2b 끝에서 한 번에 받는다. HITL#4(회고)는 태스크를 막지 않고
+`/wf-retro` 에서 여러 태스크를 모아 받는다.
 
 **두 계층**이다. Foundation 은 간헐적으로 갱신되고, Workflow 는 태스크마다 돈다.
 Phase 5 회고가 Foundation 을 되먹이는 고리가 있어서 문서가 코드와 함께 늙지 않는다.
@@ -26,7 +29,7 @@ Phase 5 회고가 Foundation 을 되먹이는 고리가 있어서 문서가 코�
 | **Foundation 스킬 4개** | `.claude/skills/{product-definition,architecture-doc,adr,task-authoring}/` | 문서 작성과 태스크 생성 기준 |
 | **Phase 스킬 6개 + 오케스트레이터** | `.claude/skills/wf-*/` | 각 단계의 MUST/FORBIDDEN/EXIT GATE + 절차 |
 | **서브에이전트 2개** | `.claude/agents/` | 시나리오 독립검증, 코드 리뷰 |
-| **슬래시 커맨드 10개** | `.claude/commands/` | `/wf-init` `/wf-feature` `/wf-tasks-from-doc` `/wf-task-new` `/wf-adr` `/wf-start` `/wf-resume` `/wf-ship` `/wf-status` `/wf-checkpoint` |
+| **슬래시 커맨드 11개** | `.claude/commands/` | `/wf-init` `/wf-feature` `/wf-tasks-from-doc` `/wf-task-new` `/wf-adr` `/wf-start` `/wf-resume` `/wf-ship` `/wf-status` `/wf-retro` `/wf-checkpoint` |
 | **훅 5개** | `.claude/settings.json` + `scripts/hooks/` | 세션 복구 자동화, 경로·파일명 규약 강제 |
 | **공통 규격** | `docs/workflow/` | 체크포인트·HITL·경로·태스크 스키마 |
 | **스크립트 10개** | `scripts/` | 게이트 검증, 제약 검사, 상태 집계, index 생성 |
@@ -201,7 +204,7 @@ git cherry-pick <sha>
 │   ├── agents/                     scenario-validator, code-reviewer
 │   └── commands/                   wf-init, wf-feature, wf-tasks-from-doc,
 │                                   wf-task-new, wf-adr, wf-start, wf-resume,
-│                                   wf-ship, wf-status, wf-checkpoint
+│                                   wf-ship, wf-status, wf-retro, wf-checkpoint
 ├── docs/
 │   ├── README.md                   새 기능을 어떻게 시작하는가
 │   ├── product/

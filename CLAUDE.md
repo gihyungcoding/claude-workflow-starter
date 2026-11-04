@@ -52,11 +52,11 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 | Phase | 스킬 | 산출물 | 사람 승인 |
 |---|---|---|---|
 | 1 Plan | `wf-plan` | `04_plan/PLAN_<ID>.json` | — |
-| 2a Scenario | `wf-scenario` | `05_scenario/SCENARIO_<ID>.md` | **HITL #1** |
-| 2b Red | `wf-red` | `05_scenario/TEST_<ID>.json` | **HITL #2** |
+| 2a Scenario | `wf-scenario` | `05_scenario/SCENARIO_<ID>.md` | — (독립검증) |
+| 2b Red | `wf-red` | `05_scenario/TEST_<ID>.json` | **HITL #1·2** (시나리오 + Red 통합) |
 | 3 Green | `wf-develop` | `06_dev/DEV_<ID>.json` | — |
 | 4 Verify | `wf-verify` | `07_verify/VERIFY_<ID>.json` | **HITL #3** |
-| 5 Reflect | `wf-reflect` | `08_reflect/REFLECT_<ID>.json` | **HITL #4** |
+| 5 Reflect | `wf-reflect` | `08_reflect/REFLECT_<ID>.json` | **HITL #4** — 비동기, `/wf-retro` 에서 모아 받음 |
 | Ship | `/wf-ship` | PR | 머지는 사람이 |
 
 전체 흐름·게이트·상태 전이는 `wf-orchestrator` 스킬이 관장한다.
@@ -88,6 +88,7 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 | 새 태스크 시작 | `/wf-start <TASK-ID>` |
 | 중단한 태스크 이어가기 | `/wf-resume <TASK-ID>` |
 | 전체 현황 보기 | `/wf-status` |
+| 승인 대기 회고를 모아 검토 | `/wf-retro` |
 | 머지 준비 (PR 생성) | `/wf-ship` |
 | 지금 상태를 체크포인트로 저장 | `/wf-checkpoint` |
 

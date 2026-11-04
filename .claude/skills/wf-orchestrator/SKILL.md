@@ -38,7 +38,7 @@ Workflow (태스크마다)                                         │
                         ┌─ EXIT GATE 통과 필요                │
                         ▼                                    │
   [1] Plan ──► [2a] Scenario ──► [2b] Red ──► [3] Green ──► [4] Verify ──► [5] Reflect ──► DONE
-       │            │  HITL#1        │ HITL#2                  │ HITL#3        │ HITL#4
+       │            │ 독립검증        │ HITL#1·2                │ HITL#3        │ (HITL#4 → /wf-retro, 비동기)
     아키텍처·ADR 참조                                    제약 검증        Foundation 되먹임
        │            │                │                         │               │
        └────────────┴─ 거절 시 되돌아감 ─────────────────────────┴───────────────┘
@@ -86,18 +86,18 @@ ls "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/
 | Phase | 통과 조건 |
 |---|---|
 | **1 → 2a** | `PLAN_<ID>.json` 존재 · 파싱 성공 · `design.inputs`/`outputs`/`flows` 비어 있지 않음 · `route ∈ {Backend, Frontend, Database}` · `codebase_analysis` 존재 · `architecture_refs` 채워짐(아키텍처 문서가 있는 경우) · `CP-1.3` 저장 |
-| **2a → 2b** | `SCENARIO_<ID>.md` + `.json` 존재 · `scenarios.length ≥ 2` (happy ≥1, error ≥1) · `VALIDATION_<ID>.json` 의 `overall.pass == true` · `human_input.generate_red_trigger == true` · `CP-2.2` 저장 |
-| **2b → 3** | `TEST_<ID>.json` 존재 · `red_scenarios.length > 0` · 테스트 실행 결과가 **실제로 실패** · 테스트 함수 개수 == 승인된 시나리오 개수 · `human_review.approved == true` · `CP-2.5` 저장 |
+| **2a → 2b** | `SCENARIO_<ID>.md` + `.json` 존재 · `scenarios.length ≥ 2` (happy ≥1, error ≥1) · `VALIDATION_<ID>.json` 의 `overall.pass == true` · `CP-2.2` 저장 — **사람 승인은 여기서 받지 않는다** (2b 끝 통합) |
+| **2b → 3** | `TEST_<ID>.json` 존재 · `red_scenarios.length > 0` · 테스트 실행 결과가 **실제로 실패** · 테스트 함수 개수 == 시나리오 개수 · **HITL#1·2 통합 승인** — `human_review.approved == true` 그리고 `generate_red_trigger == true` (`validate_phase2a_gate.py --require-hitl`) · `CP-2.5` 저장 |
 | **3 → 4** | `DEV_<ID>.json` 존재 · `test_status == "green"` · `failed == 0` · `passed ≥ red_scenarios.length` · 린트 error 0 · 자체 리뷰 `pre_review.rounds ≥ 1` · `CP-3.4` 저장 |
 | **4 → 5** | `VERIFY_<ID>.json` 존재 · `status ∈ {PASS, WARN}` (FAIL 불가) · **아키텍처 제약 error 0건** · `human_review.decision ∈ {APPROVE, EXCEPTION_APPROVE}` · `CP-4.2` 저장 |
-| **5 → DONE** | `REFLECT_<ID>.json` 존재 · `keep ≥ 1` · `insights ≥ 1` · `approved_by_human == true` · `CP-5.2` 저장 · **모든 산출물 커밋됨** |
+| **5 → DONE** | `REFLECT_<ID>.json` 존재 · `keep ≥ 1` · `insights ≥ 1` · `CP-5.2` 저장 · **모든 산출물 커밋됨** — 회고 승인(`approved_by_human`)은 기다리지 않는다. `/wf-retro` 가 나중에 모아 받는다 |
 | **DONE → Ship** | `ship_preflight.py` exit 0 — 산출물·**신선도**·제약·작업트리·브랜치·병합가능 |
 
 자동 검증:
 
 ```bash
 python3 scripts/verify_workflow_artifacts.py --task-id TASK-001   # 전체 산출물
-python3 scripts/validate_phase2a_gate.py --task-id TASK-001       # 2a 게이트
+python3 scripts/validate_phase2a_gate.py --task-id TASK-001       # 2a 게이트 (2b 끝에서는 --require-hitl)
 python3 scripts/check_architecture.py                             # 아키텍처 제약 (Phase 4)
 python3 scripts/check_freshness.py --task-id TASK-001             # 승인한 코드 그대로인가
 python3 scripts/ship_preflight.py --task-id TASK-001              # 머지 전 종합 (Ship)
@@ -157,7 +157,7 @@ Phase 1이 설계할 때 계층 배치의 기준으로 삼을 문서가 없다�
 
 | 그대로 | 이유 |
 |---|---|
-| 6 Phase · HITL 4회 | 절대 규칙 1 |
+| 6 Phase · HITL 3회 (2b 통합 · 4 · 회고 일괄) | 절대 규칙 1 |
 | Phase 1 의 `design.*` · `target_files` | 2a 검증자(V4·V8·V11)가 이것을 읽는다 |
 | 경계값 시나리오(coverage-policy §2-1) | 작은 태스크도 입력은 받는다 |
 | Phase 4 전체 — 테스트·제약·코드 리뷰·화면 확인 | 결함을 잡는 단계다 |
@@ -168,7 +168,7 @@ Phase 1이 설계할 때 계층 배치의 기준으로 삼을 문서가 없다�
 |---|---|---|
 | 1 | 완료 보고에 flows·target_files·AC 매핑 표 | **unresolved 와 AC 매핑만** |
 | 3 | 완료 보고 상세 | **테스트 수·린트·범위 이탈만** |
-| 5 | Phase 1~5 완료 리포트를 **Artifact 로 발행** | **생략** — REFLECT JSON 과 HITL#4 요약으로 |
+| 5 | Phase 1~5 완료 리포트를 **Artifact 로 발행** | **생략** — REFLECT JSON 과 일괄 검토 요약으로 |
 | 5 | KPT 각 2~3건 | **각 1건 이상** — 실제로 일어난 것만 |
 
 light 에서 아낀 만큼 Phase 4 에 쓴다.

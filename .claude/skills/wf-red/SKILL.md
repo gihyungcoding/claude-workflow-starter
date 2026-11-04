@@ -1,23 +1,24 @@
 ---
 name: wf-red
 description: >-
-  Phase 2b — 승인된 시나리오를 실패하는 테스트 코드로 옮기고 사람 승인(HITL#2)을 받는다.
-  Use when Phase 2b를 시작할 때, "Red 코드", "실패 테스트 작성", "테스트 코드 생성" 요청을
-  받을 때, 또는 HITL#1 승인 직후.
+  Phase 2b — 독립검증을 통과한 시나리오를 실패하는 테스트 코드로 옮기고, 시나리오와 테스트를
+  함께 사람 승인(HITL#1·2 통합)을 받는다. Use when Phase 2b를 시작할 때, "Red 코드", "실패
+  테스트 작성", "테스트 코드 생성" 요청을 받을 때, 또는 Phase 2a 독립검증 통과 직후.
 ---
 
 # Phase 2b — Red
 
-승인된 시나리오를 **실패하는** 테스트로 옮긴다. 이 단계가 끝나면 테스트는 반드시 빨간불이다.
+독립검증을 통과한 시나리오를 **실패하는** 테스트로 옮긴다. 이 단계가 끝나면 테스트는 반드시 빨간불이다.
 
 ## MUST
 
-1. 승인된 시나리오 **하나당 테스트 함수 하나** — 개수가 정확히 일치해야 한다
+1. 시나리오 **하나당 테스트 함수 하나** — 개수가 정확히 일치해야 한다
 2. 테스트를 실행해 **실제로 실패하는 것을 확인**한다 (실행 출력을 남긴다)
 3. 실패 사유가 **"구현이 없어서"** 인지 확인한다 — 테스트 코드 자체의 결함은 Red 가 아니다
    (정적 컴파일 언어는 Step 3의 「컴파일 언어」 절을 먼저 읽는다)
 4. 기존 테스트 파일의 관례를 따른다 (Phase 1의 `codebase_analysis.existing_tests`)
-5. HITL#2 승인을 `AskUserQuestion` 으로 받는다
+5. **시나리오와 Red 테스트를 한 번에** `AskUserQuestion` 으로 승인받는다 (HITL#1·2 통합, Step 6).
+   승인 하나로 `generate_red_trigger` 와 `human_review.approved` 를 함께 기록한다
 
 ## FORBIDDEN
 
@@ -26,15 +27,17 @@ description: >-
 2. ❌ 테스트를 통과시키기 위해 단언을 약화시키기
 3. ❌ 시나리오에 없는 테스트 추가 / 시나리오에 있는데 테스트 누락
 4. ❌ 실행하지 않고 "실패할 것"이라고 보고하기
-5. ❌ `SCENARIO_<ID>.md` 수정 — 시나리오는 HITL#1에서 확정됐다
+5. ❌ 이 Phase 에서 `SCENARIO_<ID>.md` 직접 수정 — 시나리오는 독립검증을 거친 것이다. 테스트를
+   옮기다 시나리오 결함을 찾으면 2a 로 돌아가 고치고 **검증자를 다시 거친다**
 
 ## EXIT GATE
 
 - `workflow_design/05_scenario/TEST_<ID>.json` 존재
 - `red_scenarios.length > 0`
 - 테스트 실행 결과가 **실제 실패** (출력을 `red_result` 에 기록)
-- 테스트 함수 개수 == 승인된 시나리오 개수 (grep으로 센 수치를 기록)
-- `human_review.approved == true`
+- 테스트 함수 개수 == 시나리오 개수 (grep으로 센 수치를 기록)
+- `human_review.approved == true` **그리고** `SCENARIO_<ID>.json` 의 `generate_red_trigger == true`
+  (`validate_phase2a_gate.py --require-hitl` exit 0)
 - `CP-2.5` 저장 및 커밋
 
 ---
@@ -45,10 +48,11 @@ description: >-
 
 ```bash
 cat workflow_design/05_scenario/SCENARIO_TASK-001.md      # SoT
-jq '.human_input.generate_red_trigger' workflow_design/05_scenario/SCENARIO_TASK-001.json
+python scripts/validate_phase2a_gate.py --task-id TASK-001     # exit 0 — 독립검증 통과
 ```
 
-`generate_red_trigger` 가 `true` 가 아니면 **중단한다.** HITL#1이 끝나지 않았다는 뜻이다.
+exit 0 이 아니면 **중단한다.** 2a 가 끝나지 않았다는 뜻이다. `generate_red_trigger` 는 아직
+`false` 가 정상이다 — 이 Phase 끝에서 시나리오와 테스트를 함께 승인받으며 채운다.
 
 Plan의 `test_hints` 로 프레임워크·명령·목 전략을 확인한다.
 
@@ -125,7 +129,7 @@ def test_sc01_담당_매장이_검색된다():
 
 - `red_scenarios[].status` 를 `"already_passing"` 으로 적는다 (Step 5)
 - 왜 이 시나리오가 구조적으로 Red일 수 없는지 `note` 에 남긴다
-- HITL#2 요약(Step 6)에서 어떤 시나리오가 already_passing인지 **숨기지 않고**
+- 통합 HITL 요약(Step 6)에서 어떤 시나리오가 already_passing인지 **숨기지 않고**
   명시한다 — 승인자가 "이건 왜 안 빨간불이지?"를 스스로 묻게 하지 않는다
 
 `EXIT GATE`의 "테스트 실행 결과가 실제 실패"는 여전히 유효하다 — 시나리오 **전체**가
@@ -139,7 +143,7 @@ def test_sc01_담당_매장이_검색된다():
 `@SpringBootTest`·컨텍스트를 띄우는 통합 테스트는 시나리오 Given 에 "X=true 로 기동했다"가
 있으면 **그 설정을 실제로 주입해야 한다** (`properties=…`, `@TestPropertySource` 등).
 이름과 주석에만 "가드 ON" 이라고 쓰고 설정을 넣지 않으면 기능이 꺼진 채 통과한다 —
-구현이 아직 없던 Red 시점에는 "이미 통과(already_passing)" 로 보여 HITL#2 도 지나간다.
+구현이 아직 없던 Red 시점에는 "이미 통과(already_passing)" 로 보여 Red 승인도 지나간다.
 
 `TEST_<ID>.json` 의 해당 시나리오에 **설정이 어떤 수단으로 적용되는지**를 적는다.
 
@@ -256,41 +260,65 @@ jq -r '.scenarios[].id' workflow_design/05_scenario/SCENARIO_TASK-001.json
 
 `CP-2.5_red-code.md` 저장.
 
-### Step 6 — HITL #2
+### Step 6 — HITL #1·2 통합 (시나리오 + Red)
+
+시나리오 승인과 Red 승인을 따로 받던 것을 **한 번으로 합쳤다.** 사람은 시나리오와 그것을 옮긴
+테스트를 나란히 보고 판단한다. 시나리오만 볼 때보다 판단 재료가 많고, 대기는 한 번이다.
+
+**먼저 Red 테스트를 커밋한다.** 승인을 기다리는 동안 세션이 끊기면 커밋하지 않은 테스트는
+복구되지 않는다 (절대 규칙 3). 빨간 상태로 커밋하는 것이 정상이다.
+
+```bash
+git add <테스트 경로> <스켈레톤 경로> workflow_design/05_scenario memory-bank/TASK-001
+git commit -m "test(TASK-001): 매장 검색 권한 필터 Red 테스트 6건
+
+Refs: TASK-001"
+```
+
+요약은 **시나리오 → 검증 → 테스트** 순서로 보여준다. 사람이 시나리오를 따로 승인하지 않았으므로
+시나리오 부분을 줄이지 않는다.
 
 ```
-Phase 2b — TASK-001
+Phase 2a·2b — TASK-001    시나리오 + Red 승인
 
-테스트 6개 작성 → 5개 실패(Red) + 1개 already_passing
-  tests/api/test_store_search.py
-
-  test_sc01_담당_매장이_검색된다           NameError: search_stores
-  test_sc02_담당하지_않는_매장은_403        NameError: search_stores
-  test_sc06_기존_전체_조회는_그대로_동작한다  already_passing — 이 태스크가 안 바꾸는 경로
+시나리오 6건 (happy 3 / error 2 / boundary 1)   커버리지 acceptance_criteria 3/3
+  SC-01  담당 매장이 검색된다                     → test_sc01   Red (NameError: search_stores)
+  SC-02  담당하지 않는 매장은 403                  → test_sc02   Red (NameError: search_stores)
+  SC-06  기존 전체 조회는 그대로 동작한다           → test_sc06   already_passing — 이 태스크가 안 바꾸는 경로
   ...
 
-인벤토리  시나리오 6 == 테스트 함수 6 ✓
-기존 테스트 12개 계속 통과 ✓
+독립검증  PASS (2회차) — 1회차 V11: keyword 공백만 누락 → SC-04 추가
+  경고 반영 1 · 보류 1 — SC-04 Then "캐시에 저장된다" 관찰 불가 (보류 사유: …)
+인벤토리  시나리오 6 == 테스트 함수 6 ✓    기존 테스트 12개 계속 통과 ✓
+
+전문  workflow_design/05_scenario/SCENARIO_TASK-001.md
+      tests/api/test_store_search.py
 ```
 
 `already_passing` 이 하나라도 있으면 **왜 그런지를 이 요약에서 감추지 않는다** —
 승인자가 "왜 이것만 초록불이지"를 나중에 되묻지 않도록 여기서 밝힌다.
 
-`AskUserQuestion`:
+`AskUserQuestion` (→ `docs/workflow/hitl-protocol.md` §3):
 
 - **승인** → Phase 3 (구현)
-- **테스트 수정** → Step 2로 (단언이 틀렸다 등)
-- **시나리오로 롤백** → Phase 2a로
+- **테스트 수정** → Step 2로 (단언이 틀렸다 등 — 시나리오는 맞다) · `RETRY_RED_CODE`
+- **시나리오 보완** → Phase 2a Step 2로. 고친 시나리오는 검증자를 다시 거치고, 바뀐 시나리오의
+  테스트를 다시 옮긴 뒤 이 Step 으로 돌아온다 · `RETRY_SCENARIO`
+- **설계로 롤백** → Phase 1 · `ROLLBACK_PLAN`
+
+질문이 있어 결정을 미루면(`CLARIFY`) 이 Phase 에 머물며 답한다.
 
 승인 후:
-1. `TEST_<ID>.json` 의 `human_review.approved = true`
-2. `CP-2.5` 갱신 — `next_steps` 를 Phase 3 으로
-3. `activeContext.md` 갱신
-4. 커밋 — **테스트 코드도 함께 커밋한다** (빨간 상태로 커밋하는 것이 정상이다)
+1. `SCENARIO_<ID>.json` 의 `human_input.generate_red_trigger = true`
+2. `TEST_<ID>.json` 의 `human_review.approved = true`
+3. `python scripts/validate_phase2a_gate.py --task-id TASK-001 --require-hitl` → exit 0 확인
+4. `CP-2.5` 갱신 — `next_steps` 를 Phase 3 으로
+5. `activeContext.md` 갱신
+6. 커밋
 
 ```bash
-git add tests/ workflow_design/05_scenario memory-bank/TASK-001
-git commit -m "test(TASK-001): 매장 검색 권한 필터 Red 테스트 6건
+git add workflow_design/05_scenario memory-bank/TASK-001
+git commit -m "chore(workflow): TASK-001 시나리오·Red 테스트 승인
 
 Refs: TASK-001"
 ```

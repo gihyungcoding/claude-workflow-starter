@@ -2,8 +2,8 @@
 name: wf-develop
 description: >-
   Phase 3 — Red 테스트를 통과시키는 최소 구현을 하고 리팩토링한다(TDD Green). Use when Phase 3을
-  시작할 때, "구현", "Green", "테스트 통과시키기", "기능 개발" 요청을 받을 때, 또는 HITL#2
-  승인 직후.
+  시작할 때, "구현", "Green", "테스트 통과시키기", "기능 개발" 요청을 받을 때, 또는 시나리오·Red
+  통합 승인(HITL#1·2) 직후.
 ---
 
 # Phase 3 — Green
@@ -189,7 +189,7 @@ TASK-001 의 변경 코드를 리뷰해주세요. Phase 3 자체 리뷰입니다
 | `[security]` | `[correctness]` 와 같이 처리한다 |
 | `[design]` `[reuse]` `[test]` | 범위 안에서 싸게 고칠 수 있으면 고친다. 아니면 `pre_review.deferred` 에 적어 Phase 4 로 넘긴다 |
 
-새로 쓴 테스트는 HITL#2 승인을 받은 테스트가 아니다. `pre_review.rounds[].tests_added` 에
+새로 쓴 테스트는 통합 HITL 에서 승인받은 테스트가 아니다. `pre_review.rounds[].tests_added` 에
 적어 Phase 4 가 리뷰하게 한다. **승인된 테스트는 고치지 않는다** — 고쳐야 하면 Step 3 의
 3요건을 따른다.
 
