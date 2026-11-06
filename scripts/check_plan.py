@@ -16,6 +16,8 @@
 검사하는 것
 -----------
 - PLAN 존재, 파싱, design.inputs/outputs/flows 가 비어 있지 않음, route 값
+- design.input_fields — 필드마다 flows·kinds 가 있고 kind 가 coverage_matrix.KINDS 안에 있음
+  (Phase 2a 가 덮을 입력 경계 칸이 여기서 정해진다)
 - target_files: 경로가 하나이고 구체적이다 · 새 파일이 아니면 실재 · 새 파일이면 아직 없음
 - reusable · existing_tests: 실재 (재사용하겠다는 것이 없는 파일이면 안 된다)
 - architecture.md 가 있으면 architecture_refs 가 채워져 있음
@@ -49,6 +51,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from coverage_matrix import required_cells  # noqa: E402
 from _utils import (  # noqa: E402
     artifact_path,
     docs_root,
@@ -123,6 +126,10 @@ def check(task_id: str) -> tuple[list[str], list[str], dict]:
             problems.append(f"design.{key} 가 비어 있다")
     if plan.get("route") not in ROUTES:
         problems.append(f"route 가 {list(ROUTES)} 중 하나가 아니다: {plan.get('route')!r}")
+
+    # 입력 경계 행렬의 출발점 — Phase 2a 가 덮을 칸이 여기서 정해진다 (coverage_matrix.py)
+    _, field_problems = required_cells(plan)
+    problems.extend(field_problems)
 
     ca = plan.get("codebase_analysis") or {}
     stats["exploration"] = (ca.get("exploration") or {}).get("method")

@@ -24,6 +24,18 @@ jq -r '.source_refs.source_file' workflow_design/04_plan/PLAN_<ID>.json
 | 오류 | 서버를 끄거나 잘못된 요청 |
 | 권한 없음 | 권한 없는 계정으로 |
 
+### 모바일 폭(375px)에서 보기
+
+**창 크기 조절로 뷰포트를 바꾸려 하지 않는다.** 브라우저 도구의 창 크기 조절은 실제 `innerWidth`
+를 바꾸지 못할 수 있다 — TASK-017 은 조절 뒤에도 `innerWidth` 가 2320 이었다. 대신 앱과 **같은
+출처의 375px `iframe`** 에 화면을 띄우고, 측정 전에 iframe 안의 `innerWidth` 가 375 인지 먼저
+확인한다. 같은 출처라야 iframe 안 DOM 을 읽어 잴 수 있다.
+
+**아직 어느 화면에도 쓰이지 않은 부품**은 화면을 거쳐 볼 수 없다. Vite 개발 서버라면 변환된
+`/src/main.tsx` 가 가져오는 모듈 경로(`?v=` 쿼리 포함)를 **그대로** iframe 안에서 `import` 해
+부품을 직접 렌더한다. 쿼리를 빼면 앱과 다른 모듈 인스턴스(React 포함)가 로드될 수 있다. `react-dom/client` 의
+`createRoot` 가 `default` 아래에 있을 수 있다 (TASK-017).
+
 ## 기록
 
 ```jsonc

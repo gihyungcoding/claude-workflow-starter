@@ -29,7 +29,8 @@ class CheckPlanTest(ProjectTestCase):
         data = {
             "task_id": TID,
             "route": "Backend",
-            "design": {"inputs": [{"name": "q"}], "outputs": [{"name": "r"}], "flows": [{"id": "F1"}]},
+            "design": {"inputs": [{"name": "q"}], "outputs": [{"name": "r"}], "flows": [{"id": "F1"}],
+                       "input_fields": [{"field": "q", "flows": ["F1"], "kinds": ["required", "string"]}]},
             "codebase_analysis": {
                 "target_files": targets if targets is not None else [
                     {"path": "src/api/search.py", "change": "필터 추가"},
@@ -152,6 +153,29 @@ class CheckPlanTest(ProjectTestCase):
     def test_empty_design_sections_are_violations(self):
         self.plan(design={"inputs": [], "outputs": [{"n": 1}], "flows": []})
         self.assertViolation("design.inputs", "design.flows")
+
+    def design_with(self, **fields):
+        return {"inputs": [{"name": "q"}], "outputs": [{"name": "r"}], "flows": [{"id": "F1"}], **fields}
+
+    def test_input_fields_are_required(self):
+        self.plan(design=self.design_with())
+        self.assertViolation("design.input_fields 가 없다")
+
+    def test_empty_input_fields_need_a_reason(self):
+        self.plan(design=self.design_with(input_fields=[]))
+        self.assertViolation("input_fields_none_reason")
+        self.plan(design=self.design_with(input_fields=[], input_fields_none_reason="입력 없는 배치 작업"))
+        self.assertOk()
+
+    def test_unknown_kind_and_flow_are_violations(self):
+        self.plan(design=self.design_with(input_fields=[
+            {"field": "q", "flows": ["F9"], "kinds": ["strng"]}]))
+        self.assertViolation("알 수 없는 kind 'strng'", "flow 'F9'")
+
+    def test_multi_param_needs_a_group(self):
+        self.plan(design=self.design_with(input_fields=[
+            {"field": "q", "flows": ["F1"], "kinds": ["multi_param"]}]))
+        self.assertViolation("group")
 
     def test_route_must_be_known(self):
         self.plan(route="Fullstack")

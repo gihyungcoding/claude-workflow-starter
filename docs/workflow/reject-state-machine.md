@@ -93,6 +93,13 @@ DEPENDENCY_NOT_READY     선행 태스크·외부 API 미준비      → BLOCKED
 
 상한 초과로 상위 Phase에 진입할 때는 `reject.escalated_from` 에 원래 Type을 남긴다.
 
+**2a 독립검증은 이 상한에 닿지 않게 설계돼 있다.** 예전에는 `RETRY_SCENARIO` 상한 초과의 대부분이
+V11(입력 경계)이었다 — 검증자가 회차마다 칸을 새로 찾아 목표가 움직였다(TASK-016 은 9회 FAIL ·
+설계 롤백 2회). 지금은 칸을 PLAN 의 `design.input_fields` 가 정하고(`coverage_matrix.py`), 빠진 칸은
+검증자를 부르기 전에 게이트가 센다. 2회차부터 검증자는 이전 지적의 해소·새 회귀만 fail 로 내고,
+처음 보는 지적은 경고로 내 사람이 HITL 에서 판단한다. 검증자의 `plan_gap`(필드·종류 누락)으로
+`input_fields` 를 보완하는 것은 분류 수정이라 `ROLLBACK_PLAN` 으로 세지 않는다.
+
 ---
 
 ## 4. BLOCKED 처리

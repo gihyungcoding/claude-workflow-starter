@@ -85,8 +85,8 @@ ls "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/
 
 | Phase | 통과 조건 |
 |---|---|
-| **1 → 2a** | `PLAN_<ID>.json` 존재 · 파싱 성공 · `design.inputs`/`outputs`/`flows` 비어 있지 않음 · `route ∈ {Backend, Frontend, Database}` · `codebase_analysis` 존재 · `architecture_refs` 채워짐(아키텍처 문서가 있는 경우) · `CP-1.3` 저장 |
-| **2a → 2b** | `SCENARIO_<ID>.md` + `.json` 존재 · `scenarios.length ≥ 2` (happy ≥1, error ≥1) · `VALIDATION_<ID>.json` 의 `overall.pass == true` · `CP-2.2` 저장 — **사람 승인은 여기서 받지 않는다** (2b 끝 통합) |
+| **1 → 2a** | `PLAN_<ID>.json` 존재 · 파싱 성공 · `design.inputs`/`outputs`/`flows` 비어 있지 않음 · `route ∈ {Backend, Frontend, Database}` · `design.input_fields` 존재(`check_plan.py`) · `codebase_analysis` 존재 · `architecture_refs` 채워짐(아키텍처 문서가 있는 경우) · `CP-1.3` 저장 |
+| **2a → 2b** | `SCENARIO_<ID>.md` + `.json` 존재 · `scenarios.length ≥ 2` (happy ≥1, error ≥1) · **입력 경계 칸 전부 판정**(`coverage_matrix.py`) · `VALIDATION_<ID>.json` 의 `overall.pass == true` · `CP-2.2` 저장 — **사람 승인은 여기서 받지 않는다** (2b 끝 통합) |
 | **2b → 3** | `TEST_<ID>.json` 존재 · `red_scenarios.length > 0` · 테스트 실행 결과가 **실제로 실패** · 테스트 함수 개수 == 시나리오 개수 · **HITL#1·2 통합 승인** — `human_review.approved == true` 그리고 `generate_red_trigger == true` (`validate_phase2a_gate.py --require-hitl`) · `CP-2.5` 저장 |
 | **3 → 4** | `DEV_<ID>.json` 존재 · `test_status == "green"` · `failed == 0` · `passed ≥ red_scenarios.length` · 린트 error 0 · 자체 리뷰 `pre_review.rounds ≥ 1` · `CP-3.4` 저장 |
 | **4 → 5** | `VERIFY_<ID>.json` 존재 · `status ∈ {PASS, WARN}` (FAIL 불가) · **아키텍처 제약 error 0건** · `human_review.decision ∈ {APPROVE, EXCEPTION_APPROVE}` · `CP-4.2` 저장 |
@@ -97,6 +97,7 @@ ls "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/
 
 ```bash
 python3 scripts/verify_workflow_artifacts.py --task-id TASK-001   # 전체 산출물
+python3 scripts/coverage_matrix.py --task-id TASK-001             # 입력 경계 칸 (2a, 검증자 호출 전)
 python3 scripts/validate_phase2a_gate.py --task-id TASK-001       # 2a 게이트 (2b 끝에서는 --require-hitl)
 python3 scripts/check_architecture.py                             # 아키텍처 제약 (Phase 4)
 python3 scripts/check_freshness.py --task-id TASK-001             # 승인한 코드 그대로인가

@@ -348,8 +348,18 @@ class UnprobedFollowUpTest(ProjectTestCase):
         self.assertIn("evidence", out.stdout)
 
     def test_not_reproduced_with_a_test_is_ok(self):
-        self.next_round("not_reproduced", evidence="AuthApiTest.passwordLoneSurrogateRejected")
+        self.next_round("not_reproduced", evidence="AuthApiTest#passwordLoneSurrogateRejected")
         self.assertEqual(self.check().returncode, 0)
+
+    def test_not_reproduced_with_a_test_file_path_is_ok(self):
+        self.next_round("not_reproduced", evidence="src/test/java/app/AuthApiTest.java 에서 400 확인")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_not_reproduced_with_only_prose_is_a_violation(self):
+        self.next_round("not_reproduced", evidence="직접 요청해 보니 400 이 났다")
+        out = self.check()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("evidence", out.stdout)
 
     def test_reproduced_in_the_next_round_is_ok_while_failing(self):
         self.next_round("reproduced")

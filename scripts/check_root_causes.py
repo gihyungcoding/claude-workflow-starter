@@ -23,7 +23,8 @@ UNIQUE 위반으로 취급하는 catch" 가 뿌리였다. 증상 하나를 고�
   않은 채 넘긴 변종이 다음 FAIL 이 됐다 — TASK-009 3차에 "password 의 짝 없는 서로게이트" 를
   "영향 없다고 판단" 하고 건너뛰었고, 그것이 4차 FAIL(로그인 비밀번호 200)이었다.
   Phase 3 가 그 변종의 테스트를 쓰는 것이 프로브다. `not_reproduced` 로 바꾸려면 그것을 보인
-  테스트를 `evidence` 에 적는다
+  테스트를 `evidence` 에 **식별자로**(`클래스#메서드` 또는 테스트 파일 경로) 적는다 —
+  프로브 설명 문장만으로는 통과하지 않는다
 
 "이전 라운드" 는 그 VERIFY 버전 이후 이 브랜치에서 소스가 바뀐 경우다. Phase 4 는 코드를
 고치지 않으므로 소스 변경은 Phase 2b·3 을 거쳤다는 뜻이다. 기준 브랜치를 병합해 들어온
@@ -85,6 +86,13 @@ ORIGINS = ("found", "predicted", "later")
 #: not_reproduced 프로브했으나 재현되지 않았다
 #: not_probed     프로브하지 못했다 (사유 필수)
 PROBES = ("reproduced", "not_reproduced", "not_probed")
+
+#: 테스트 식별자 — `클래스#메서드` 또는 테스트 파일 경로. TASK-009 는 HTTP 프로브 문자열만으로
+#: not_reproduced 를 통과했고, 그 변종을 지키는 자동 테스트는 끝내 생기지 않았다.
+TEST_REF_RE = re.compile(
+    r"[A-Za-z_][\w$]*#[\w$]+"
+    r"|[\w./-]*(?:[Tt]est|spec)[\w./-]*\.(?:java|kt|py|tsx?|jsx?)\b"
+)
 
 
 def _text(value: object) -> str:
@@ -284,10 +292,11 @@ def unprobed_followup_problems(data: dict, keys: set[tuple[str, str]]) -> list[s
                 f"{rc_id}: 이전 라운드에서 프로브하지 않은 변종이 아직 not_probed 다 — {case!r}. "
                 "Phase 3 가 이 변종의 테스트를 썼어야 한다 (테스트가 프로브다)"
             )
-        elif probe == "not_reproduced" and not _text(v.get("evidence")):
+        elif probe == "not_reproduced" and not TEST_REF_RE.search(_text(v.get("evidence"))):
             problems.append(
                 f"{rc_id}: 이전 라운드에서 프로브하지 않은 변종을 not_reproduced 로 바꿨는데 "
-                f"evidence 가 없다 — {case!r}. 재현되지 않음을 보인 테스트를 적는다"
+                f"evidence 에 테스트 식별자가 없다 — {case!r}. 재현되지 않음을 보인 테스트를 "
+                "'클래스#메서드' 나 테스트 파일 경로로 적는다 (프로브 설명만으로는 안 된다)"
             )
     return problems
 
