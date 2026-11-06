@@ -24,12 +24,18 @@ class Phase2aGateTest(ProjectTestCase):
         p = self.project
         p.write_json(
             f"workflow_design/04_plan/PLAN_{TID}.json",
-            {"acceptance_criteria": ["목록 조회", "잘못된 입력은 400"]},
+            {"acceptance_criteria": ["목록 조회", "잘못된 입력은 400"],
+             "design": {"flows": [{"id": "F1"}],
+                        "input_fields": [{"field": "q", "flows": ["F1"], "kinds": ["required"]}]}},
         )
         self.scenario = {
             "scenarios": [
                 {"id": "SC-01", "type": "happy", "covers": ["목록 조회"]},
                 {"id": "SC-02", "type": "error", "covers": ["잘못된 입력은 400"]},
+            ],
+            "coverage_matrix": [
+                {"cell": "q@F1:required.missing", "state": "covered", "by": ["SC-02"]},
+                {"cell": "q@F1:required.null", "state": "n/a", "reason": "쿼리 파라미터라 null 이 없다"},
             ],
             "human_input": {"generate_red_trigger": True},
         }
@@ -126,6 +132,35 @@ class Phase2aGateTest(ProjectTestCase):
             scenarios=[{"id": "SC-01", "type": "happy", "covers": ["목록 조회", "잘못된 입력은 400"]}]
         )
         self.assertEqual(self.gate(), 1)
+
+    def test_coverage_matrix_missing_cell_fails(self):
+        self.rewrite_scenario(coverage_matrix=self.scenario["coverage_matrix"][:1])
+        out = self.project.run("validate_phase2a_gate.py", "--task-id", TID)
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("q@F1:required.null", out.stdout)
+
+    def test_coverage_matrix_na_without_reason_fails(self):
+        self.rewrite_scenario(coverage_matrix=[
+            self.scenario["coverage_matrix"][0],
+            {"cell": "q@F1:required.null", "state": "n/a"},
+        ])
+        self.assertEqual(self.gate(), 1)
+
+    def test_coverage_matrix_cover_by_unknown_scenario_fails(self):
+        self.rewrite_scenario(coverage_matrix=[
+            {"cell": "q@F1:required.missing", "state": "covered", "by": ["SC-09"]},
+            self.scenario["coverage_matrix"][1],
+        ])
+        self.assertEqual(self.gate(), 1)
+
+    def test_plan_without_input_fields_fails(self):
+        self.project.write_json(
+            f"workflow_design/04_plan/PLAN_{TID}.json",
+            {"acceptance_criteria": ["목록 조회", "잘못된 입력은 400"], "design": {"flows": [{"id": "F1"}]}},
+        )
+        out = self.project.run("validate_phase2a_gate.py", "--task-id", TID)
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("input_fields", out.stdout)
 
     def test_missing_checkpoint_fails(self):
         self.project.path(f"memory-bank/{TID}/checkpoints/phase2a/CP-2.2_canonical-scenarios.md").unlink()

@@ -15,9 +15,9 @@ Plan의 `flows` 를 **검증 가능한 Given/When/Then**으로 옮긴다. 이 �
 
 1. 시나리오 **2건 이상** — happy 최소 1, error 최소 1
 2. 모든 `acceptance_criteria` 를 시나리오가 덮는다
-3. **입력을 받는 태스크면 입력 필드마다 타입별 경계값을 대본다**
-   (→ `references/coverage-policy.md` §2-1). 길이 상한 +1, null 원소, 소수, 상한 +1 은
-   Phase 4 가 찾을 일이 아니라 여기서 쓸 일이다
+3. **PLAN 이 정한 입력 경계 칸을 전부 판정한다** — `coverage_matrix.py` 가 PLAN 의
+   `design.input_fields` 에서 칸을 펼친다. 칸마다 `covered`(SC-ID) 또는 `n/a`(사유). 길이 상한 +1,
+   null 원소, 소수는 Phase 4 가 찾을 일이 아니라 여기서 쓸 일이다 (→ `references/coverage-policy.md` §2-1)
 4. `SCENARIO_<ID>.md` 를 SoT로 쓴다. JSON은 MD에서 파생시킨다
 5. **독립검증자 서브에이전트**를 호출한다 (`scenario-validator`)
 6. 검증자 응답을 `VALIDATION_<ID>.json` 에 **가공 없이 그대로** 저장한다
@@ -37,6 +37,7 @@ Plan의 `flows` 를 **검증 가능한 Given/When/Then**으로 옮긴다. 이 �
 - `SCENARIO_<ID>.md` 와 `SCENARIO_<ID>.json` 존재
 - `scenarios.length ≥ 2`, happy ≥ 1, error ≥ 1
 - 모든 `acceptance_criteria` 가 최소 1개 시나리오에 매핑됨
+- **`coverage_matrix.py` exit 0** — 입력 경계 칸이 빠짐없이 판정됨
 - `validator/VALIDATION_<ID>.json` 의 `overall.pass == true`
 - `CP-2.2` 저장 및 커밋 — 시나리오 작성·독립검증마다 **같은 파일을 갱신**한다
 - `human_input.generate_red_trigger` 는 `false` 로 둔다 — 2b 끝의 통합 승인에서 채운다
@@ -96,6 +97,13 @@ flow: F2
 
 `CP-2.2_canonical-scenarios.md` 저장.
 
+**PLAN 의 입력 제약도 한 항목씩 대조한다.** `design.inputs[].constraints` 의 각 항목이 어느
+시나리오의 Then 에서 단언되는지 찾는다. 단언하는 시나리오가 없는 제약은 시나리오를 추가하거나,
+「Phase 4 수동 증거」로 확인한다고 `CP-2.2` 의 `decisions` 에 적는다. 시나리오에 없는 제약은
+테스트도 없어서, 구현에서 지워도 아무것도 실패하지 않는다 (→ TASK-013 변이 M15 생존 —
+주소 정리 제약).
+
+
 ### Step 3 — JSON 파생
 
 MD를 읽어 `SCENARIO_<ID>.json` 을 만든다. **MD가 SoT다** — JSON을 고치고 MD를 두면 안 된다.
@@ -111,6 +119,10 @@ MD를 읽어 `SCENARIO_<ID>.json` 을 만든다. **MD가 SoT다** — JSON을 �
       "covers": ["담당하지 않는 매장은 검색 결과에 나오지 않는다"],
       "flow": "F1" }
   ],
+  "coverage_matrix": [
+    { "cell": "keyword@F1:string.max+1", "state": "covered", "by": ["SC-03"] },
+    { "cell": "keyword@F1:string_stored.nul", "state": "n/a", "reason": "저장하지 않고 LIKE 비교만 — PLAN constraints" }
+  ],
   "coverage": {
     "acceptance_criteria_total": 3,
     "acceptance_criteria_covered": 3,
@@ -121,6 +133,27 @@ MD를 읽어 `SCENARIO_<ID>.json` 을 만든다. **MD가 SoT다** — JSON을 �
 ```
 
 `coverage.uncovered` 가 비어 있지 않으면 **Step 2로 돌아간다.**
+
+**MD 를 고친 뒤에는 JSON 을 통째로 다시 만든다** — 롤백·경고 반영·검증 FAIL 수정 모두.
+바뀐 시나리오만 JSON 에 덧대면 규약 표·`notes` 같은 다른 칸이 옛 MD 를 가리킨 채 남고,
+검증자가 MD 와 JSON 의 불일치로 FAIL 을 낸다 (→ TASK-017 롤백 검증 1회차 V1).
+
+### Step 3.5 — 입력 경계 행렬을 채운다
+
+**검증자를 부르기 전에** 기계가 셀 수 있는 누락을 없앤다. 빠진 칸은 검증자 회차를 쓸 일이 아니다.
+
+```bash
+python3 scripts/coverage_matrix.py --task-id TASK-001 --skeleton   # 아직 판정 안 된 칸의 초안
+python3 scripts/coverage_matrix.py --task-id TASK-001              # exit 0 이 될 때까지
+```
+
+- 칸마다 시나리오를 쓰거나 기존 시나리오 표에 행을 더해 `covered` 로 닫는다. 같은 검사는 시나리오
+  하나의 표로 묶는다 (→ `coverage-policy.md` 「개수를 불리지 않는 법」)
+- 해당하지 않는 칸은 `n/a` 와 **PLAN 에 근거한 사유**로 닫는다 (예: 「PLAN constraints — 서버 400 에
+  맡긴다」). 근거 없는 `n/a` 는 검증자가 FAIL 로 돌려보낸다
+- **칸이 없어서 못 덮는 경계를 발견하면** — 필드나 종류가 PLAN 에서 빠진 것이다. `input_fields` 를
+  고치고 `check_plan.py` 를 다시 돌린다. 분류 보완은 설계 변경이 아니므로 `ROLLBACK_PLAN` 으로 세지
+  않되, `CP-2.2` 의 `decisions` 에 무엇을 더했는지 적는다
 
 ### Step 4 — 독립검증
 
@@ -148,13 +181,30 @@ TASK-001 의 시나리오를 검증해주세요.
 **검증자에게 "통과시켜달라"거나 "이 부분은 괜찮다"는 유도를 넣지 않는다.** 파일 경로와
 태스크 ID만 준다.
 
+**2회차부터는 이전 판정을 원문 그대로 붙인다.** 검증자는 매번 새로 시작하므로 이전 회차를 모르면
+처음부터 다시 찾고, 그때마다 새 지적이 나온다. 이전 판정이 있으면 검증자는 「지적한 것이 고쳐졌나 ·
+고치다 새로 깨진 것이 있나」를 판정하고, 처음 보는 지적은 경고로 낸다 (→ 검증자 「회차 규칙」).
+
+```bash
+git show HEAD:workflow_design/05_scenario/validator/VALIDATION_TASK-001.json   # 직전 회차 원문
+```
+
+```
+이전 회차 판정 (원문, 2회차):
+<위 출력 그대로>
+이번 회차에 고친 시나리오: SC-03, SC-07 (추가: SC-11)
+```
+
 응답을 `workflow_design/05_scenario/validator/VALIDATION_<ID>.json` 에 **그대로** 저장한다.
 요약·정리·불리한 항목 제거 금지.
 
 - `overall.pass == false` → 지적된 항목을 고치고 Step 2부터 다시. 재검증은 최대 3회.
-  **V11 이 fail 이면 지적된 칸만 고치지 않는다.** `v11_matrix` 의 `missing` 칸을 전부 고치고,
-  지적된 필드와 **같은 종류의 다른 필드·다른 흐름**(가입에서 빠졌으면 로그인도)을 직접 대조한
-  뒤 재검증한다. 지적된 칸만 고치면 다음 회차에 옆 칸이 새 누락으로 나온다(→ TASK-010 5회차)
+  **V11 fail 은 셋 중 하나다** — 지적의 `kind` 를 보고 고친다.
+  - `false_cover` — `covered` 라고 적었는데 시나리오가 그 값을 쓰지 않는다 → 시나리오를 고친다.
+    **같은 시나리오를 근거로 든 다른 칸도 전부** 다시 본다
+  - `bad_na` — `n/a` 사유가 PLAN 과 맞지 않는다 → 시나리오를 쓰거나 근거를 고친다
+  - `plan_gap` — PLAN `input_fields` 에 필드·종류가 빠졌다 → Step 3.5 마지막 항목대로 PLAN 을
+    고치고, 새로 생긴 칸을 **모두** 채운 뒤 재검증한다
 - `overall.pass == true` 이고 **경고만** 있으면 **재검증하지 않는다.** 반영할 경고를 고치고
   통합 HITL(2b 끝) 요약에 무엇을 반영·보류했는지 적는다. 경고는 사람이 판단할 몫이다 — 경고를
   고칠 때마다 검증자를 다시 부르면 같은 시나리오를 세 번 검증하게 된다

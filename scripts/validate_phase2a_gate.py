@@ -16,7 +16,8 @@ generate_red_trigger 가 기록됐는지 확인한다.
 원본의 같은 게이트는 14조건이었고 그중 상당수가 plan_hash sha256 대조, 검증자 모델 ID 확인,
 프롬프트 이중 저장 검사 같은 위변조 방지 장치였다. 여기서는 검증자 서브에이전트가
 tools allowlist 상 파일을 쓸 수 없으므로 위변조 경로 자체가 없다. 남은 6조건은 모두
-"산출물이 실제로 그렇게 되어 있는가"를 묻는다.
+"산출물이 실제로 그렇게 되어 있는가"를 묻는다. 입력 경계 행렬(4-1)은 그 뒤에 더했다 —
+덮을 칸을 PLAN 이 정하고, 빠진 칸을 검증자 대신 이 스크립트가 센다.
 
 사용
 ----
@@ -40,6 +41,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from coverage_matrix import evaluate
 from _utils import (
     artifact_path,
     is_valid_task_id,
@@ -147,6 +149,24 @@ def validate(task_id: str, require_hitl: bool) -> Result:
             "독립검증 통과 (overall.pass)",
             passed,
             f"fail {fail_count}건 — {overall.get('summary', '')}" if not passed else "",
+        )
+
+    # 4-1. 입력 경계 행렬 — 칸은 PLAN 이 정하고, 빠진 칸은 기계가 센다 (coverage_matrix.py).
+    # 검증자가 칸을 찾게 두면 회차마다 다른 칸이 나와 수렴하지 않았다 (TASK-016 V11 FAIL 9회).
+    matrix, code = evaluate(task_id)
+    if "error" in matrix:
+        result.check("입력 경계 행렬 (coverage_matrix)", False, matrix["error"])
+    else:
+        issues = matrix["plan_problems"] + matrix["problems"]
+        if matrix["missing"]:
+            issues.append(f"빠진 칸 {len(matrix['missing'])}: {matrix['missing'][:5]}"
+                          + (" …" if len(matrix["missing"]) > 5 else ""))
+        issues += matrix["invalid"][:5]
+        result.check(
+            "입력 경계 행렬 (coverage_matrix)",
+            code == 0,
+            f"칸 {matrix['total']} 모두 판정" if code == 0
+            else " / ".join(issues) + " — python3 scripts/coverage_matrix.py --task-id " + task_id,
         )
 
     # 5. HITL#1 승인 — 2b 끝의 통합 승인에서 기록되므로 --require-hitl 일 때만 본다

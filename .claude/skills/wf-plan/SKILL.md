@@ -40,6 +40,7 @@ description: >-
 
 - `workflow_design/04_plan/PLAN_<ID>.json` 존재, JSON 파싱 성공
 - `design.inputs`, `design.outputs`, `design.flows` 모두 비어 있지 않음
+- `design.input_fields` 가 있음 — 필드마다 `flows`·`kinds` (입력이 없으면 `[]` + 사유)
 - `route ∈ {Backend, Frontend, Database}`
 - **`check_plan.py` exit 0** — 기존 파일은 실재, 새 파일은 `new: true` 이고 아직 없음,
   `reusable`·`existing_tests` 실재. 조사 결과를 요약으로 받았어도 이것으로 확인한다
@@ -145,6 +146,10 @@ Foundation 문서가 아직 없으면(빈 프로젝트) 이 단계를 건너뛰�
 
 - 웹폰트·라이브러리 프리셋처럼 **값을 지정해 요청하는 것**은 지정하기 전에 실제 사용처의
   현재 값을 확인한다 (→ `references/design-checks.md` §2)
+- **NOT NULL 컬럼이나 응답 DTO 필드를 추가하면** 기존 테스트의 엔티티 생성(`new`·빌더·픽스처)과
+  응답 키 단언(`jsonPath`·키 목록 비교)을 Grep 해 걸리는 테스트를 `unresolved` 에 적는다.
+  승인된 테스트라 Phase 3 에서 고치려면 사람 승인이 필요하다 — 미리 알면 2b 에서 함께 다룬다
+  (→ TASK-016 Phase 3 에서 승인 테스트 수정 2건)
 
 조사 결과를 `codebase_analysis` 에 기록한다. 찾지 못한 것은 `unresolved` 에 남긴다 —
 못 찾았다는 사실이 다음 Phase에 필요한 정보다.
@@ -232,6 +237,45 @@ route 가 Frontend 이면 화면 간 이동을 flow 로 적었는가, 타입을 
 
 **`flows[].covers` 가 `acceptance_criteria` 를 전부 덮는지 확인한다.** 덮이지 않은 기준이
 있으면 flow를 추가하거나, 그 기준이 이 태스크 범위인지 사용자에게 확인한다.
+
+**외부에서 들어오는 값도 입력이다.** 사용자 입력만 적으면 시나리오가 그것만 덮는다. 외부 서비스
+응답(토큰 엔드포인트·userinfo·JWKS·콜백 쿼리)은 `source: "외부 서버 응답"` 으로 `design.inputs` 에
+넣는다 (→ TASK-012 독립검증 1회차 — 토큰 응답 변형·콜백 `code` 누락).
+
+#### 입력 필드 표 — `design.input_fields` (필수)
+
+**Phase 2a 가 덮을 칸은 여기서 정해진다.** 입력 필드마다 흐름과 종류(`kinds`)를 고르면
+`scripts/coverage_matrix.py` 가 `coverage-policy.md` §2-1 의 칸으로 펼치고, 2a 게이트가 빠진 칸을
+기계로 센다. 예전에는 독립검증자가 회차마다 칸을 새로 찾았고, 같은 경계를 다른 이름으로 적으며
+옆 칸을 하나씩 새로 지적했다 — 2a 재시도가 전체 재시도의 45% 였고 TASK-016 은 V11 로만 9번
+FAIL 했다. 칸이 고정되면 그 루프가 생기지 않는다.
+
+```bash
+python3 scripts/coverage_matrix.py --kinds        # 고를 수 있는 종류와 칸
+```
+
+```jsonc
+"input_fields": [
+  { "field": "email",    "flows": ["F1", "F2"], "kinds": ["required", "string", "string_stored"], "max": 255 },
+  { "field": "password", "flows": ["F1"],       "kinds": ["required", "string", "string_stored"], "max": 72 },
+  { "field": "role",     "flows": ["F1"],       "kinds": ["required", "enum"] },
+  { "field": "exp",      "flows": ["F5"],       "kinds": ["required", "json_field", "integer_notation", "datetime"],
+    "note": "토큰 클레임 — Instant 로 받는다" }
+]
+```
+
+- **필드 단위로** 적는다 — `design.inputs` 의 「가입 폼 입력」처럼 묶인 항목을 필드로 푼다
+- 같은 필드가 여러 흐름에 쓰이면 `flows` 에 모두 적는다 — 칸이 흐름마다 생긴다
+  (가입에서 덮고 로그인에서 빠뜨리는 일이 반복됐다)
+- **해당할 수 있는 종류는 다 고른다.** 해당하지 않는 칸은 2a 에서 `n/a` + 사유로 닫으면 된다.
+  종류를 빠뜨리면 칸 자체가 생기지 않고, 독립검증자가 PLAN 결함으로 되돌린다 — 그때 한 번에
+  전부 고친다
+- 외부 토큰·JSON 을 받으면 필드마다 `json_field`, 숫자면 `integer_notation`, 요청 문자열이면
+  `opaque` 를 고른다 (→ TASK-016 `claim_schema`)
+- 입력이 없는 태스크는 `"input_fields": []` 와 `"input_fields_none_reason"` 을 적는다
+
+`check_plan.py` 가 종류 이름·흐름 ID 를 확인한다.
+
 
 ### Step 5 — 저장
 
