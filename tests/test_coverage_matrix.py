@@ -8,7 +8,17 @@ import unittest
 
 from helpers import SCRIPTS, ProjectTestCase
 
+sys.path.insert(0, str(SCRIPTS))
+import coverage_matrix  # noqa: E402
+
 TID = "TASK-001"
+
+#: 흐름 2개 × (required + string) 칸. 종류에 칸을 더하면 이 값이 따라 바뀐다 —
+#: 숫자를 하드코딩하면 칸을 추가한 변경이 이 테스트를 조용히 깨뜨린다 (PR #10 이 그랬다).
+FLOWS = 2
+EXPECTED_CELLS = FLOWS * (
+    len(coverage_matrix.KINDS["required"][1]) + len(coverage_matrix.KINDS["string"][1])
+)
 
 
 class PolicyParityTest(unittest.TestCase):
@@ -31,14 +41,16 @@ class ExpandTest(ProjectTestCase):
     def test_cells_are_expanded_per_flow(self):
         out = self.project.run("coverage_matrix.py", "--task-id", TID, "--skeleton")
         self.assertEqual(out.returncode, 0, out.stderr)
-        # required 2칸 + string 3칸, 흐름 2개
-        self.assertEqual(out.stdout.count('"cell"'), 10)
+        self.assertEqual(out.stdout.count('"cell"'), EXPECTED_CELLS)
         self.assertIn("email@F2:string.max+1", out.stdout)
+        # 종류가 새로 얻은 칸도 흐름마다 펼쳐진다
+        self.assertIn("email@F2:string.unicode_blank", out.stdout)
+        self.assertIn("email@F1:string.unicode_blank", out.stdout)
 
     def test_without_scenario_every_cell_is_missing(self):
         out = self.project.run("coverage_matrix.py", "--task-id", TID)
         self.assertEqual(out.returncode, 1)
-        self.assertIn("빠짐 10", out.stdout)
+        self.assertIn(f"빠짐 {EXPECTED_CELLS}", out.stdout)
 
 
 if __name__ == "__main__":
