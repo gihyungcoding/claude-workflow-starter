@@ -24,7 +24,7 @@ python scripts/wf_status.py --active
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cat "$REPO_ROOT/memory-bank/<TASK-ID>/activeContext.md"
-ls -1 "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/
+ls -1 "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/ 2>/dev/null
 ```
 
 1. `activeContext.md` 의 `phase` 와 `last_checkpoint` 를 읽는다

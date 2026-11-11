@@ -48,7 +48,7 @@ python scripts/wf_status.py
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cat "$REPO_ROOT/memory-bank/<TASK-ID>/progress.md"
-ls -1 "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/
+ls -1 "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/ 2>/dev/null
 python scripts/verify_workflow_artifacts.py --task-id <TASK-ID>
 ```
 

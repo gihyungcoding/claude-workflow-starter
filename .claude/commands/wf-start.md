@@ -105,8 +105,12 @@ ls docs/architecture/architecture.md docs/decisions/README.md 2>/dev/null
 
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-mkdir -p "$REPO_ROOT/memory-bank/$1/checkpoints"/{phase1,phase2a,phase2b,phase3,phase4,phase5}
+mkdir -p "$REPO_ROOT/memory-bank/$1"
 ```
+
+`checkpoints/phase*/` 는 **미리 만들지 않는다.** git 은 빈 디렉터리를 추적하지 못해서
+`.gitkeep` 을 넣게 되는데, 그 파일은 경로 규약 위반이다. 체크포인트를 저장할 때
+`mkdir -p` 로 만든다 (→ `docs/workflow/checkpoint-template.md` §4).
 
 `activeContext.md` 와 `progress.md` 를 작성한다 (→ `docs/workflow/memory-bank-spec.md` §1, §2).
 태스크의 `title`, `primary_category`, `acceptance_criteria` 를 옮겨 담는다.
