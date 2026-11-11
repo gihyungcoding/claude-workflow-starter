@@ -213,6 +213,11 @@ TASK-001 의 변경 코드를 리뷰해주세요. Phase 3 자체 리뷰입니다
 않는다. `pre_review.unresolved` 에 적고 사용자에게 알린 뒤 Phase 4 로 넘긴다. 판정은
 Phase 4 가 한다.
 
+**단, 남은 `[correctness]` 가 시나리오에 없는 변종이면 Phase 4 로 넘기지 않는다.** 3 의 표대로 지금
+사용자에게 2a 롤백을 제안한다. 상한은 같은 Phase 안의 수정 루프를 끊는 장치다 — 원인과 수정이 이미
+알려진 결함을 Phase 4 로 보내면 Phase 4 FAIL 이 같은 2a 롤백을 한 바퀴 더 크게 돈다
+(→ 실사용: 2R unresolved 2건이 그대로 Phase 4 1회차 FAIL 의 원인이었다).
+
 소견이 없으면 1라운드로 끝난다. **결함이 없다는 리뷰 결과도 `rounds` 에 남긴다.**
 
 ### Step 6 — DEV JSON 저장
