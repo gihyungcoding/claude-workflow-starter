@@ -52,6 +52,21 @@ class Project:
         self.write("README.md", "# fixture\n")
         self.commit("chore: init")
 
+    @classmethod
+    def copy_of(cls, template: "Project") -> "Project":
+        """이미 만들어 둔 저장소를 복사한다. git init · 첫 커밋을 매번 다시 하지 않아 빠르다.
+
+        원격(bare)을 같은 폴더 안에 두었다면 함께 복사된다. 원격 URL 은 원본 경로를 가리키므로
+        호출한 쪽이 새 경로로 바꿔야 한다.
+        """
+        self = cls.__new__(cls)
+        self._tmp = Path(tempfile.mkdtemp(prefix="wf-test-")).resolve()
+        shutil.rmtree(self._tmp)
+        shutil.copytree(template._tmp, self._tmp, symlinks=True)
+        self.root = self._tmp / "repo"
+        self.env = _git_env(self._tmp)
+        return self
+
     def cleanup(self) -> None:
         shutil.rmtree(self._tmp, ignore_errors=True)
 
