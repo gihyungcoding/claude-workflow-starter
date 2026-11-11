@@ -80,6 +80,7 @@ KINDS: dict[str, tuple[str, list[tuple[str, str]]]] = {
     "string": ("문자열", [
         ("empty", "빈 값"),
         ("blank", "공백만"),
+        ("unicode_blank", "유니코드 공백만 (U+3000·NBSP·U+200B·U+2028) — '공백 아님' 규칙을 쓰는 필드가 둘 이상이면 한 표로 묶어 같은 판정인지 본다"),
         ("max+1", "최대 길이 + 1"),
     ]),
     "string_stored": ("저장·비교되는 문자열 (로그인처럼 비교만 하는 입력 포함)", [
@@ -141,6 +142,24 @@ KINDS: dict[str, tuple[str, list[tuple[str, str]]]] = {
         ("session_change", "응답 전 로그인·로그아웃"),
         ("leave", "응답 전 언마운트·화면 이동·StrictMode 취소"),
         ("late_failure", "늦게 오는 401·5xx·네트워크 오류·비 JSON"),
+    ]),
+    "route_path": ("클라이언트 라우터·서버가 경로로 판별하는 주소", [
+        ("trailing_slash", "끝 슬래시 (/login/)"),
+        ("case", "대소문자 (/Login)"),
+        ("percent_encoded", "퍼센트 인코딩된 같은 경로 (/log%69n)"),
+        ("malformed_encoding", "깨진 인코딩 (%E0·%zz)"),
+    ]),
+    "url": ("외부 URL 입력 (이미지·링크) — 하위 요소마다 판정", [
+        ("scheme_case", "스킴 대소문자 (HTTPS://)"),
+        ("host_charset", "호스트의 밑줄·비 ASCII 글자"),
+        ("host_percent", "호스트의 %XX"),
+        ("host_colon", "호스트에 ':' 여럿 (a:1:2)·호스트 없이 포트만"),
+        ("userinfo_empty", "빈 userinfo (https://@host)"),
+        ("userinfo_at", "userinfo 안의 '@' (a@b@host)"),
+        ("port_empty", "빈 포트 (host:)"),
+        ("port_non_ascii_digit", "ASCII 가 아닌 숫자 포트 (아랍-인도·전각)"),
+        ("ipv6", "IPv6 리터럴 — 올바른 것·닫히지 않은 것·뒤 쓰레기"),
+        ("surrounding_space", "앞뒤 공백"),
     ]),
     "converted": ("프레임워크가 변환한 뒤 판정하는 값", [
         ("raw_vs_converted", "Given 에 변환 전·후 중 어느 쪽인지 + 대소문자·공백·숫자 표기·타입 변형"),
