@@ -117,13 +117,6 @@ class CheckMockupTest(MockupTestCase):
         self.screens["desktop"].append({"id": "d-home", "merges": ["detail", "home"]})
         self.assertFlags("home: 데스크톱 화면 2개")
 
-    def test_single_branch_is_a_warning(self):
-        self.screens["screens"][1]["branches"] = [{"to": "home", "label": "뒤로"}]
-        self.save()
-        code, out = self.check()
-        self.assertEqual(code, 0)
-        self.assertTrue(any("갈래가 하나뿐" in w and w.startswith("detail") for w in out["warnings"]))
-
     def test_desktop_is_optional(self):
         del self.screens["desktop"]
         self.save()

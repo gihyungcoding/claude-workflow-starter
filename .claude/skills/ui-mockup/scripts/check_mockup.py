@@ -130,9 +130,6 @@ def run(root: Path) -> tuple[list[str], list[str], str]:
         for b in s.get("branches") or []:
             if b.get("to") not in ids:
                 errors.append(f"{s['id']}: 갈래가 없는 화면을 가리킨다 — {b.get('to')}")
-        if len(s.get("branches") or []) == 1:
-            warnings.append(f"{s['id']}: 갈래가 하나뿐이다 — 화살표는 조건에 따라 갈라질 때만. 순서대로 이어지거나 "
-                            "되돌아가는 링크는 branches 에서 빼고 화면 안 링크로 둔다 (캔버스 이름표가 겹친다)")
     owners: dict[str, list[str]] = {}
     for d in desktop:
         f = root / (d.get("file") or f"screens/desktop/{d['id']}.html")
