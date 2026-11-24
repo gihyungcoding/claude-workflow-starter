@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def target_id() -> str | None:
-    from _utils import list_tasks, workflow_design_root
+    from _utils import is_valid_req_id, is_valid_task_id, list_tasks, workflow_design_root
 
     briefs = []
     for p in (workflow_design_root() / "01_brief").glob("BRIEF_REQ-*.json"):
@@ -35,12 +35,18 @@ def target_id() -> str | None:
             data = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        if isinstance(data, dict) and data.get("status") in ("drafting", "refining"):
-            briefs.append((p.stat().st_mtime, data.get("id")))
+        if not isinstance(data, dict):
+            continue
+        rid = data.get("id")
+        # id 는 파일 내용이다 — 형식이 맞고 파일명과 같을 때만 믿는다
+        if (data.get("status") in ("drafting", "refining") and isinstance(rid, str)
+                and is_valid_req_id(rid) and p.name == f"BRIEF_{rid}.json"):
+            briefs.append((p.stat().st_mtime, rid))
     if briefs:
         return max(briefs)[1]
     active = [t for t in list_tasks() if str(t.get("status", "")).upper() == "ACTIVE"]
-    return active[0].get("task_id") if len(active) == 1 else None
+    tid = str(active[0].get("task_id") or "") if len(active) == 1 else ""
+    return tid if is_valid_task_id(tid) else None
 
 
 def main() -> int:

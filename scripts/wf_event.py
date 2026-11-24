@@ -56,7 +56,12 @@ def now() -> str:
 
 
 def append(record_id: str, event: str, data: dict) -> Path:
+    # 파일 내용에서 온 ID 도 여기로 들어온다(훅) — 형식이 아니면 경로를 만들지 않는다 (경로 이탈 방지)
+    if not (is_valid_task_id(record_id) or is_valid_req_id(record_id)):
+        raise ValueError(f"기록 ID 형식이 아니다: {record_id!r}")
     path = telemetry_path(record_id)
+    if path.resolve().parent != (workflow_design_root() / "09_telemetry").resolve():
+        raise ValueError(f"기록 경로가 09_telemetry 밖이다: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps({"ts": now(), "id": record_id, "event": event, "data": data}, ensure_ascii=False)
     with path.open("a", encoding="utf-8") as f:   # 한 줄 append — 줄 단위라 부분 기록이 다른 줄을 망치지 않는다

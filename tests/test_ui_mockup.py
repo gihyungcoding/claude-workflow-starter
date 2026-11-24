@@ -218,6 +218,13 @@ class LogQuestionHookTest(ProjectTestCase):
         self.ask()
         self.assertEqual([e["event"] for e in self.lines("TASK-001")], ["question_asked"])
 
+    def test_ids_from_file_contents_cannot_escape_the_telemetry_folder(self):
+        self.project.write_json("workflow_design/01_brief/BRIEF_REQ-001.json", {"id": "../../escaped", "status": "refining"})
+        self.project.write("memory-bank/TASK-001/activeContext.md", "---\ntask_id: ../../../escaped2\nstatus: ACTIVE\n---\n")
+        self.assertEqual(self.ask(), 0)
+        self.assertEqual(list(self.project.root.rglob("escaped*")), [])
+        self.assertFalse(self.project.path("workflow_design/09_telemetry").exists())
+
     def test_other_tools_and_garbage_never_block(self):
         self.assertEqual(self.ask(tool="Write"), 0)
         self.assertEqual(self.project.run(HOOK, stdin="{not json").returncode, 0)
