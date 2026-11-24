@@ -5,6 +5,10 @@ argument-hint: "<기능-이름>"
 
 `product-definition` 스킬로 요구사항 문서를 작성한다.
 
+> 만들 것이 정해져 있고 바로 진행하려면 `/wf-plan "<요청>"` 이 기능 문서까지 만든다(Dispatch 의 `feature_doc`).
+> 이 명령은 구현 전에 기능을 문서로 먼저 정리하고 싶을 때 쓴다. 화면이 있으면 §2 를 쓰는 동안 `ui-mockup` 으로
+> 시안을 만들 수 있다.
+
 ## 1. 파일 준비
 
 인자를 케밥케이스로 정규화한다 (`매장 검색 권한` → `store-search-permission`).

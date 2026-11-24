@@ -157,7 +157,16 @@ git commit -m "chore(memory-bank): $1 워크플로우 시작"
 
 ### 8. Phase 1 진입
 
-`wf-plan` 스킬로 넘어간다.
+태스크의 `source_refs.request_id` 를 본다.
+
+```bash
+REQ=$(jq -r '.[] | select(.id == "$1") | .source_refs.request_id // empty' workflow_design/02_tasks/tasks.json)
+[ -n "$REQ" ] && python3 scripts/check_brief.py --req "$REQ" --gate locked
+```
+
+- 요청이 있고 확정됐다 → `wf-plan` 의 **Normalize**(`references/normalize.md`)만 한다. 계획 대화는 이미 끝났다
+- 요청이 있는데 확정되지 않았다 → 멈추고 `/wf-plan` 으로 그 요청을 먼저 확정하자고 안내한다
+- 요청이 없다(기능 문서에서 추출·`/wf-task-new`) → `wf-plan` 「요청 없는 태스크」로 미니 BRIEF 를 확정한 뒤 Normalize
 
 ---
 
