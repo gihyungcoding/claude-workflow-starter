@@ -39,7 +39,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _utils import TASK_ID_RE, load_json, task_id_error, workflow_design_root  # noqa: E402
+from _utils import REQ_ID_RE, TASK_ID_RE, load_json, task_id_error, workflow_design_root  # noqa: E402
 
 VALID_CATEGORIES = {"Backend", "Frontend", "Database"}
 VALID_PRIORITY = {"High", "Medium", "Low"}
@@ -185,6 +185,13 @@ def check_graph(tasks: list[dict], report: Report) -> None:
     for task_id in list(color):
         if color[task_id] == WHITE:
             visit(task_id, [task_id])
+
+    # 요청(REQ)에서 나온 태스크 — 요청 ID 형식 (brief-schema.md §1)
+    for task in tasks:
+        req = (task.get("source_refs") or {}).get("request_id")
+        if req is not None and not REQ_ID_RE.match(str(req)):
+            report.error(str(task.get("id", "")),
+                         f"source_refs.request_id 형식이 아니다: {req!r} — 'REQ-' + 숫자 3자리 이상")
 
     # FE 태스크가 BE 를 선행으로 두는 관행 확인
     by_id = {str(t.get("id", "")): t for t in tasks}
