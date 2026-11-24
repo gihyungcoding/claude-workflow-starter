@@ -126,3 +126,22 @@ beach · calendar · car · clipboard · coffee · eyes · grandpa · child · h
 - **띠 배너** — "본문을 밀어내지 않고 한 줄로 알릴 혜택·소식인가?": `<a class="strip" href="…"><img src="../assets/fluent/invite.svg" alt=""><span>친구를 초대하면 둘 다 1회 무료</span>(› 선 아이콘)</a>` — 화면당 하나.
 - **쿠폰** — "사용자가 받거나 고르는 할인이 있는가?": `<div class="coupon"><div class="coupon-main"><p class="coupon-amount">10,000원</p><p class="coupon-cond">5만원 이상 · 11월 30일까지</p></div><button class="coupon-get">(내려받기 선 아이콘)받기</button></div>` — 받은 뒤 `coupon is-done` + `<span class="coupon-get" aria-disabled="true">(체크)받음</span>`.
 - **남은 시간** — "마감 시각이 정해진 판촉·신청이고, 남은 시간이 행동을 바꾸는가?": `<span class="countdown" role="timer" aria-label="남은 시간 3시간 25분">(시계 선 아이콘)03:25:13</span>`. 날짜 단위면 글자("D-3")로.
+
+
+## 칸 고르기 (좌석·자리) — 모바일·데스크톱 같은 부품
+**판단 질문: 격자에서 칸을 하나씩 골라야 하는가?**(좌석·자리·시간 칸) 화면마다 배치도를 새로 만들지 않는다 — 로컬 `<style>` 을 쓰면 모바일과 데스크톱이 달라진다.
+```html
+<div class="picker">
+  <div class="picker-filter"><div class="seg" role="radiogroup"><button class="seg-item is-selected" role="radio" aria-checked="true">R석 99,000원</button><button class="seg-item" role="radio" aria-checked="false">S석 77,000원</button></div></div>
+  <div class="picker-mini" role="img" aria-label="구역 전체 중 A~E열 2~6번을 보는 중"><span class="picker-mini-view" style="--x:5%;--y:0%;--w:25%;--h:60%"></span><span class="picker-mini-label">A~H열 × 20</span></div>
+  <div class="picker-stage">무대</div>
+  <div class="picker-viewport"><div class="picker-grid">
+    <div class="picker-row"><span class="picker-row-label">A</span><button class="seat" aria-label="R-A2">2</button><span class="seat is-off" role="img" aria-label="R-A3 고를 수 없음"></span><button class="seat is-picked" aria-pressed="true" aria-label="R-A4 고름">4</button></div>
+  </div></div>
+  <ul class="picker-legend"><li><span class="seat"></span>고를 수 있음</li><li><span class="seat is-off"></span>고를 수 없음</li><li><span class="seat is-picked"></span>내가 고름</li></ul>
+</div>
+```
+- **등급·구역 선택(`picker-filter`)은 언제나 배치도 바로 위** — 모바일·데스크톱 모두. 페이지 머리나 옆에 두지 않는다
+- 칸은 44px(모바일 터치). 많으면 `picker-viewport` 가 가로로 스크롤되고, 구역 전체 모습은 `picker is-overview`(누를 수 없는 분포)
+- 고를 수 없는 칸은 번호를 지우고 `aria-label` 로만(대비 기준을 지키는 방법)
+- 인라인 style 예외 둘째: `.picker-mini-view` 의 `--x --y --w --h` 만

@@ -31,10 +31,19 @@
 </div>
 </body></html>
 ```
-- 보조 열이 있으면 `<main class="main has-aside"><div class="col">(머리·본문)</div><aside class="aside">…</aside></main>`
+- 보조 열이 있으면 **머리는 두 열 위에**: `<main class="main has-aside"><header class="d-head">…</header><div class="col">(본문)</div><aside class="aside">…</aside></main>` — 머리를 `.col` 안에 넣으면 보조 열이 본문보다 위에서 시작한다
+- **폭은 정해진 것만**: 본문 1fr + 보조 320px(`has-aside`) · 목록 380px + 상세(`split`) · 같은 무게 블록 `grid-2`/`grid-3`. 화면마다 폭을 새로 만들지 않는다
+- **같은 데스크톱 화면의 상태 화면은 기본 화면 파일을 복사해 바뀐 부분만** 고친다 — 박스의 수·순서·폭이 같아야 한다(측정이 비교한다)
+- **사이드 내비(`shell`)**: 앱 안의 목적지를 오가는 화면이면 쓴다. 예매·결제처럼 한 가지 일을 끝까지 하는 흐름은 빼도 되지만, 한 흐름 안에서는 전부 쓰거나 전부 뺀다
+
+## 버튼
+- 데스크톱 버튼 글자는 **한 줄**(`white-space: nowrap`). 버튼은 내용 폭이고, 꽉 채우려면 `.full`
+- 버튼이 둘 이상이면 `<div class="btn-row">` — 보조 열·패널 안에서는 자동으로 세로로 쌓여 꽉 찬다(주 행동을 위에)
+- 페이지 단위 행동은 보통 크기, `small` 은 표·목록 행 안에서만 — 같은 성격의 버튼 크기를 화면마다 바꾸지 않는다
 - `h1` 은 화면당 1개(`d-head` 안). 링크는 다른 데스크톱 화면 파일로.
 
 ## 숫자 요약
+큰 숫자 칸(`stat`)은 **짧은 값**(숫자·금액·날짜, 대략 12자 이하)에만. 계좌번호·주소처럼 긴 값은 `block` 안의 행으로.
 `<div class="stats"><a class="stat" href="…"><span class="stat-label">답 기다림</span><span class="stat-num">3</span><span class="stat-sub">가장 오래된 것 5일째</span></a>…</div>`
 
 ## 목록·상세 나란히

@@ -117,6 +117,18 @@ class CheckMockupTest(MockupTestCase):
         self.screens["desktop"].append({"id": "d-home", "merges": ["detail", "home"]})
         self.assertFlags("home: 데스크톱 화면 2개")
 
+    def test_local_style_block_is_a_warning(self):
+        self.pages["screens/detail.html"] = page("<style>.x{gap:var(--stack-s)}</style><h1>a</h1>")
+        self.save()
+        code, out = self.check()
+        self.assertEqual(code, 0)
+        self.assertTrue(any("<style>" in w and w.startswith("screens/detail.html") for w in out["warnings"]))
+
+    def test_minimap_css_variables_are_allowed_inline(self):
+        self.pages["screens/detail.html"] = page('<h1>a</h1><span class="picker-mini-view" style="--x:5%;--y:0%;--w:25%;--h:60%"></span>')
+        self.save()
+        self.assertEqual(self.check()[0], 0)
+
     def test_desktop_is_optional(self):
         del self.screens["desktop"]
         self.save()
@@ -162,6 +174,18 @@ class BuildCanvasTest(MockupTestCase):
         # 다른 줄로 넘어가는 화살표 이름표가 같은 자리에 겹치던 문제 — 놓인 자리를 피해 민다
         tpl = (STARTER / ".claude/skills/ui-mockup/scripts/canvas_template.html").read_text(encoding="utf-8")
         self.assertIn("ly = freeY(lx, (sg + tg) / 2)", tpl)
+
+    def test_audit_checks_button_wrap_aside_offset_and_state_frames(self):
+        audit = (STARTER / ".claude/skills/ui-mockup/scripts/audit.html").read_text(encoding="utf-8")
+        for needle in ("버튼 글자가", "보조 열과 본문 첫 박스", "기본 화면(", "박스 폭이 다르다"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, audit)
+
+    def test_desktop_kit_keeps_button_text_on_one_line_and_header_full_width(self):
+        css = (STARTER / ".claude/skills/ui-mockup/kit/desktop.css").read_text(encoding="utf-8")
+        self.assertIn(".main.has-aside > .d-head { grid-column: 1 / -1; }", css)
+        self.assertIn("white-space: nowrap", css)
+        self.assertIn(".aside .btn-row", css)
 
     def test_feedback_header_is_ours(self):
         self.project.run(CANVAS, OUT)

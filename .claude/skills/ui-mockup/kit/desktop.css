@@ -23,7 +23,9 @@ body.desk { background: var(--c-bg); min-width: 1024px; }
 .sidenav-foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--stack-s); padding: 0 12px; }
 
 .main { min-width: 0; padding: var(--stack-l) 40px 64px; display: flex; flex-direction: column; gap: var(--stack-m); }
-.main.has-aside { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--stack-l); align-items: start; }
+.main.has-aside { display: grid; grid-template-columns: minmax(0, 1fr) 320px; column-gap: var(--stack-l); row-gap: var(--stack-m); align-items: start; }
+/* 페이지 머리는 두 열 위 전체 폭 — 본문 첫 박스와 보조 열이 같은 높이에서 시작한다 (블라인드 시험: 보조 열이 104px 위에서 시작) */
+.main.has-aside > .d-head { grid-column: 1 / -1; }
 .main.has-aside > .col { display: flex; flex-direction: column; gap: var(--block-gap); min-width: 0; }
 .aside { position: sticky; top: var(--stack-l); display: flex; flex-direction: column; gap: var(--block-gap); }
 
@@ -33,7 +35,13 @@ body.desk { background: var(--c-bg); min-width: 1024px; }
 .d-head h1 { font-size: var(--fs-title); font-weight: var(--fw-title); line-height: var(--lh-title); }
 .d-head .lead { font-size: var(--fs-body); color: var(--c-text-2); }
 .d-actions { display: flex; gap: var(--stack-s); flex: none; }
-.desk .btn { height: 44px; padding: 0 20px; }
+.desk .btn { height: auto; min-height: 44px; padding: 10px 20px; white-space: nowrap; }   /* 글자는 한 줄 — 좁으면 버튼 묶음이 세로로 쌓인다 */
+.desk .block .btn, .desk .panel .btn { align-self: flex-start; }                              /* 데스크톱에서 버튼은 내용 폭 — 꽉 채우려면 .full */
+.desk .btn.full { align-self: stretch; width: 100%; }
+/* 버튼 묶음 — 넓으면 가로, 좁은 칸(보조 열·패널)에서는 세로로 꽉 채워 쌓는다. 주 행동이 위 */
+.btn-row { display: flex; gap: var(--stack-s); flex-wrap: wrap; }
+.aside .btn-row, .panel .btn-row, .btn-row.is-stack { flex-direction: column; }
+.aside .btn-row .btn, .panel .btn-row .btn, .btn-row.is-stack .btn { width: 100%; align-self: stretch; }
 .desk .btn.secondary { background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-line-strong); color: var(--c-text-1); }
 .desk .btn.primary:hover { background: var(--c-brand-pressed); }
 .desk .btn.small { height: 36px; padding: 0 12px; font-size: var(--fs-sub); }
@@ -42,7 +50,7 @@ body.desk { background: var(--c-bg); min-width: 1024px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--block-gap); }
 .stat { background: var(--c-surface); border-radius: var(--r-l); padding: 20px 24px; display: flex; flex-direction: column; gap: 4px; }
 .stat-label { font-size: var(--fs-sub); color: var(--c-text-2); }
-.stat-num { font-size: var(--fs-title); font-weight: var(--fw-title); line-height: 1.2; }
+.stat-num { font-size: var(--fs-title); font-weight: var(--fw-title); line-height: 1.2; white-space: nowrap; }   /* 짧은 값만 — 계좌번호처럼 긴 값은 .block 의 행으로 */
 .stat-sub { font-size: var(--fs-caption); color: var(--c-text-3); }
 a.stat:hover { box-shadow: inset 0 0 0 1px var(--c-line-strong); }
 
@@ -113,6 +121,8 @@ a.card:hover { box-shadow: var(--shadow-2); }
 .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .panel-head .h2 { font-size: var(--fs-h2); font-weight: var(--fw-h2); }
 .panel-foot { display: flex; gap: var(--stack-s); justify-content: flex-end; padding-top: var(--stack-s); border-top: 1px solid var(--c-line); }
+.aside .panel-foot { flex-direction: column; }            /* 보조 열(320px)에서는 버튼 두 개를 나란히 두지 않는다 */
+.aside .panel-foot .btn { width: 100%; }
 
 /* ── 대화상자: 확인·짧은 선택 ── */
 .desk .dim { position: fixed; inset: 0; background: var(--c-overlay); z-index: 20; }

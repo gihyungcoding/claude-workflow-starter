@@ -114,6 +114,9 @@ python3 UM/kit/derive.py --brand "#RRGGBB" --tone warm|neutral|cool -o "$OUT/tok
   그 위에 지금 상황 한 문장(`hero`). 사람 카드의 알고 싶은 것의 답을 첫 화면에 크게 — 질답지로 만들지 않는다.
 - **데스크톱** `OUT/screens/desktop/<id>.html` — `kit/DESKTOP.md` 뼈대(1280) + 모바일 부품. `layout.md` 의 ASCII 대로.
 - 누르는 것은 실제 파일 `href` / `data-back` / `data-stay="바뀐 뒤 안내 한 문장"`. 모바일은 모바일끼리, 데스크톱은 데스크톱끼리.
+- **키트에 없는 부품을 화면 안 `<style>` 로 만들지 않는다** — 모바일과 데스크톱이 따로 만들어 어긋난다(정적 검사가 경고). 좌석·자리는
+  `kit/COMPONENTS.md` 「칸 고르기」. 정말 없으면 한 화면에서 만들고 같은 흐름의 모든 화면이 같은 클래스를 쓰게 하고, 키트에 더하자고 제안한다
+- 데스크톱은 `kit/DESKTOP.md` 「뼈대」「버튼」을 지킨다 — 머리는 두 열 위, 정해진 폭, 상태 화면은 기본 화면 복사, 버튼 한 줄·`btn-row`
 - 사물은 `assets/fluent/` 일러스트, 사람은 아바타. **사진은 사용자가 준 것이나 출처·라이선스를 `credits.json`
   (`[{slot, file, author, license, url}]`)에 적을 수 있는 것만** — 없으면 사진 자리를 쓰지 않는다.
 

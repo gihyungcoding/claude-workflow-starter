@@ -50,7 +50,7 @@ HREF_RE = re.compile(r"""<a\b([^>]*)>""", re.I)
 ATTR_RE = lambda name: re.compile(rf"""\b{name}\s*=\s*["']([^"']*)["']""", re.I)
 SRC_RE = re.compile(r"""<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']""", re.I)
 EMOJI_RE = re.compile("[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F000-\U0001F2FF]")
-RANGE_STYLE_RE = re.compile(r"^\s*(--from:\s*[\d.]+%;?\s*|--to:\s*[\d.]+%;?\s*)+$")
+RANGE_STYLE_RE = re.compile(r"^\s*(--(?:from|to|x|y|w|h):\s*[\d.]+%;?\s*)+$")   # .range · .picker-mini-view 의 CSS 변수만
 BADGE_COLORS = ("is-brand", "is-warning", "is-info", "is-success", "is-danger")
 
 
@@ -71,7 +71,11 @@ def check_file(path: Path, root: Path, badge_classes: set[str], errors: list[str
         if not RANGE_STYLE_RE.match(style):
             errors.append(f"{rel}: 인라인 style 금지 — style=\"{style[:40]}\"")
             break
-    for block in STYLE_BLOCK_RE.findall(src):
+    blocks = STYLE_BLOCK_RE.findall(src)
+    if blocks:
+        warnings.append(f"{rel}: 화면 안 <style> {sum(len(b) for b in blocks)}자 — 키트 밖 부품은 화면마다 달라진다. "
+                        "키트 부품(칸 고르기 등)으로 바꾸거나, 여러 화면에 쓰이면 키트에 더하자고 제안")
+    for block in blocks:
         if COLOR_RE.search(block):
             errors.append(f"{rel}: <style> 안에 색 값을 직접 썼다 — 토큰 변수만 쓴다")
             break
