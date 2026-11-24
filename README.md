@@ -4,13 +4,19 @@
 Skills / Subagents / Hooks / Slash Commands 로 구성했고, 스택에 종속되지 않는다.
 
 ```
-Foundation (프로젝트 수준)        Workflow (태스크마다)
+사용자 요청 ─► /wf-plan  1차 계획 → 역할별 리뷰·시안·결정 대화 → 확정(HITL#0) → 수정 범위에 따른 후속 작업
+                                                                    │ ADR·기능 문서·태스크
+Foundation (프로젝트 수준)        Workflow (태스크마다)                ▼
   product.md                       Plan → Scenario → Red → Green → Verify → Reflect → Ship
   architecture.md ────참조────►            검증      HITL#1·2     HITL#3   (HITL#4)   │
   constraints.yaml ───검증────►                                      │        │        ▼
   ADR-*.md         ◄──────────────── ADR 제안 ─────────────────────────────────┘      PR
   features/*.md ──── §1-2 표 ────► tasks.json
 ```
+
+**말로 요청하면 계획부터 시작한다.** `/wf-plan "<요청>"` 이 코드를 조사해 1차 계획을 쓰고, 제품·디자인·
+DevEx·Eng·교차 모델 리뷰와 결정 대화로 다듬은 뒤 사람에게 확정을 받는다(HITL#0). 화면이 바뀌면 확정 전에
+모바일·데스크톱 시안을 캔버스로 보고 의견을 준다. 확정한 계획의 수정 범위가 ADR·기능 문서·태스크를 정한다.
 
 HITL#1(시나리오)과 #2(Red)는 2b 끝에서 한 번에 받는다. HITL#4(회고)는 태스크를 막지 않고
 `/wf-retro` 에서 여러 태스크를 모아 받는다.
@@ -24,15 +30,16 @@ Phase 5 회고가 Foundation 을 되먹이는 고리가 있어서 문서가 코�
 
 | 구성요소 | 위치 | 역할 |
 |---|---|---|
-| **상시 컨텍스트** | `CLAUDE.md` | 매 요청 주입. 짧게 유지한다 (147줄) |
+| **상시 컨텍스트** | `CLAUDE.md` | 매 요청 주입. 짧게 유지한다 (162줄) |
 | **Foundation 문서** | `docs/product/` `docs/architecture/` `docs/decisions/` | 프로덕트 정의, 아키텍처, 기술 결정 |
 | **Foundation 스킬 4개** | `.claude/skills/{product-definition,architecture-doc,adr,task-authoring}/` | 문서 작성과 태스크 생성 기준 |
+| **시안 스킬** | `.claude/skills/ui-mockup/` | 모바일·데스크톱 HTML 시안, 흐름별 캔버스, 정적·렌더링 검사 (k-style-ui-ux MIT 에서 가져와 고침 — `NOTICE.md`) |
 | **Phase 스킬 6개 + 오케스트레이터** | `.claude/skills/wf-*/` | 각 단계의 MUST/FORBIDDEN/EXIT GATE + 절차 |
-| **서브에이전트 2개** | `.claude/agents/` | 시나리오 독립검증, 코드 리뷰 |
+| **서브에이전트 3개** | `.claude/agents/` | 계획 리뷰(역할별), 시나리오 독립검증, 코드 리뷰 |
 | **슬래시 커맨드 11개** | `.claude/commands/` | `/wf-init` `/wf-feature` `/wf-tasks-from-doc` `/wf-task-new` `/wf-adr` `/wf-start` `/wf-resume` `/wf-ship` `/wf-status` `/wf-retro` `/wf-checkpoint` |
-| **훅 5개** | `.claude/settings.json` + `scripts/hooks/` | 세션 복구 자동화, 경로·파일명 규약 강제 |
+| **훅 7개** | `.claude/settings.json` + `scripts/hooks/` | 세션 복구 자동화, 경로·파일명 규약 강제, 게이트 보호, 질문 대기 시간 기록 |
 | **공통 규격** | `docs/workflow/` | 체크포인트·HITL·경로·태스크 스키마 |
-| **스크립트 10개** | `scripts/` | 게이트 검증, 제약 검사, 상태 집계, index 생성 |
+| **스크립트 18개** | `scripts/` | 게이트 검증, 계획 확정·라우팅·재계획 영향, 제약 검사, 상태 집계, index 생성 |
 | **상태 저장소** | `memory-bank/` | 태스크별 체크포인트 (세션 복구) |
 | **산출물** | `workflow_design/` | Phase별 JSON/MD |
 
@@ -91,13 +98,14 @@ git config workflow.baseBranch develop
 ### 6. 첫 기능
 
 ```
-/wf-feature 매장검색권한        →  요구사항 문서 (§1-2 태스크 분리 포함)
-/wf-tasks-from-doc docs/product/features/store-search-permission.md
-/wf-start TASK-001              →  Phase 1~5
+/wf-plan "슈퍼바이저가 담당 매장만 검색하게 해 줘"
+        →  1차 계획 → 리뷰·시안·결정 대화 → 확정(HITL#0)
+        →  ADR·기능 문서·태스크 생성 → TASK-001 시작 → Phase 2a~5
 /wf-ship                        →  최종 검사 후 PR
 ```
 
-급하면 `/wf-task-new "설명"` 으로 태스크 한 건만 바로 만들 수도 있다.
+문서를 먼저 정리하고 싶으면 `/wf-feature` → `/wf-tasks-from-doc` → `/wf-start`, 급하면 `/wf-task-new "설명"`.
+이렇게 만든 태스크도 시작할 때 짧은 계획 확정을 거친다.
 
 ### 처음 쓴다면
 
@@ -178,8 +186,8 @@ git cherry-pick <sha>
 
 ## 이 스타터가 하지 않는 것
 
-- **CI 통합** — GitHub Actions 워크플로우는 아직 없다. `ship_preflight.py` 를 CI에서
-  호출하면 되지만, 스크립트가 안정된 뒤에 붙이는 편이 낫다
+- **프로젝트 CI 통합** — 이 저장소의 CI(`.github/workflows/ci.yml`)는 스타터 자체 점검용이다.
+  프로젝트 CI 에서 `ship_preflight.py` 를 호출하는 것은 프로젝트가 정한다
 - **릴리스·핫픽스** — `release/*`, `hotfix/*` 경로는 설계만 되어 있고 미구현이다.
   머지까지(`Ship`)가 현재 범위다
 - **코딩 표준 강제** — 린트는 프로젝트 도구에 맡긴다
@@ -200,8 +208,9 @@ git cherry-pick <sha>
 │   │   ├── architecture-doc/       아키텍처 + 검사 가능한 제약
 │   │   ├── adr/                    기술 결정 기록
 │   │   ├── task-authoring/         WRU 판정·스키마·채번 (단일 기준)
-│   │   └── wf-*/                   Phase 스킬 6개 + 오케스트레이터
-│   ├── agents/                     scenario-validator, code-reviewer
+│   │   ├── ui-mockup/              시안 — 키트·캔버스·검사 (Phase 1 Refine)
+│   │   └── wf-*/                   Phase 스킬 6개 + 오케스트레이터 (wf-plan = 계획 대화·확정·정규화)
+│   ├── agents/                     plan-reviewer, scenario-validator, code-reviewer
 │   └── commands/                   wf-init, wf-feature, wf-tasks-from-doc,
 │                                   wf-task-new, wf-adr, wf-start, wf-resume,
 │                                   wf-ship, wf-status, wf-retro, wf-checkpoint
@@ -222,6 +231,10 @@ git cherry-pick <sha>
 │   ├── rebuild_memory_bank_index.py
 │   ├── rebuild_doc_index.py        ADR·기능 문서 인덱스
 │   ├── validate_tasks.py           스키마·WRU·순환 의존
+│   ├── check_brief.py              요청 계획(BRIEF) 게이트 — draft · lock · locked · dispatch
+│   ├── route_brief.py              수정 범위 → 후속 작업 (ADR·기능 문서·태스크)
+│   ├── plan_impact.py              계획이 바뀌면 어디부터 다시 하나
+│   ├── wf_event.py                 로컬 이벤트 기록·요약 (질문 대기·리뷰 채택·재오픈)
 │   ├── check_plan.py               Phase 1 경로 검사 (기존 실재 · 신규 표시) · 입력 필드 표
 │   ├── coverage_matrix.py          입력 필드 → 경계 칸 펼치기 · 2a 빠진 칸 세기
 │   ├── validate_phase2a_gate.py
@@ -234,13 +247,13 @@ git cherry-pick <sha>
 │   ├── verify_workflow_artifacts.py
 │   └── hooks/                      session_start, check_artifact_paths,
 │                                   check_secrets, check_symlinks, check_uncommitted,
-│                                   protect_gates
+│                                   protect_gates, log_question
 ├── tests/                          scripts/ 의 테스트 (스타터 전용 — 프로젝트로 복사하지 않는다)
 ├── .github/workflows/ci.yml        테스트 + 스타터 자체 점검 (위와 같은 이유로 복사하지 않는다)
 ├── memory-bank/                    태스크별 상태 (저장소 루트여야 한다)
 └── workflow_design/                Phase 산출물
-    ├── 02_tasks/  04_plan/  05_scenario/
-    └── 06_dev/    07_verify/ 08_reflect/
+    ├── 01_brief/  02_tasks/  04_plan/  05_scenario/
+    └── 06_dev/    07_verify/ 08_reflect/ 09_telemetry/
 ```
 
 ---

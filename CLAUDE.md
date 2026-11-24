@@ -20,7 +20,7 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 <!-- 화면이 있는 프로젝트라면 채운다. 백엔드 전용이면 이 두 줄을 지운다. -->
 - **UI 라이브러리**: (예: shadcn/ui — 근거 ADR-0002)
 - **디자인 정본**: `docs/product/design.md` · `design-tokens.css` (`/wf-init` 2.5절에서 생성)
-- **시안**: (Figma / Artifact 링크 / 없음 — 화면 명세는 feature 문서 §5)
+- **시안**: 요청마다 `workflow_design/01_brief/mockup/<REQ-ID>/` (`ui-mockup` 스킬). 외부 시안이 있으면 링크: (Figma / 없음)
 
 ---
 
@@ -47,11 +47,12 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 
 ## 개발 워크플로우
 
-모든 개발 태스크는 6단계를 순서대로 거친다. 각 단계는 전용 스킬이 담당한다.
+**말로 받은 요청은 `/wf-plan` 에서 시작한다** — 1차 계획을 세우고 리뷰·결정 대화로 다듬어 사람이 확정(HITL#0)하면,
+수정 범위에 따라 ADR·기능 문서·태스크가 만들어진다. 그다음 모든 개발 태스크는 6단계를 순서대로 거친다.
 
 | Phase | 스킬 | 산출물 | 사람 승인 |
 |---|---|---|---|
-| 1 Plan | `wf-plan` | `04_plan/PLAN_<ID>.json` | — |
+| 1 Plan | `wf-plan` (+ 화면이면 `ui-mockup`) | `01_brief/BRIEF_<REQ>.json` → `04_plan/PLAN_<ID>.json` | **HITL #0** — 요청 계획 확정 (태스크마다가 아니라 요청마다) |
 | 2a Scenario | `wf-scenario` | `05_scenario/SCENARIO_<ID>.md` | — (독립검증) |
 | 2b Red | `wf-red` | `05_scenario/TEST_<ID>.json` | **HITL #1·2** (시나리오 + Red 통합) |
 | 3 Green | `wf-develop` | `06_dev/DEV_<ID>.json` | — |
@@ -80,6 +81,7 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 
 | 상황 | 명령 |
 |---|---|
+| **만들거나 고칠 것을 말로 요청한다 (기본)** | `/wf-plan "<요청>"` |
 | 프로젝트를 막 시작했다 | `/wf-init` |
 | 새 기능의 요구사항을 쓴다 | `/wf-feature <이름>` |
 | 문서에서 태스크를 만든다 | `/wf-tasks-from-doc <경로>` |
@@ -123,6 +125,7 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 | `docs/workflow/hitl-protocol.md` | 사람의 승인을 받을 때 |
 | `docs/workflow/memory-bank-spec.md` | 세션을 복구하거나 상태를 갱신할 때 |
 | `docs/workflow/task-schema.md` | 태스크를 만들거나 읽을 때 |
+| `docs/workflow/brief-schema.md` | 요청 계획(BRIEF)을 쓰거나 읽을 때 |
 | `docs/workflow/reject-state-machine.md` | **거절이 발생했을 때만** |
 | `docs/workflow/data-antipatterns.md` | JSON 산출물을 다루다 막혔을 때 |
 | `docs/README.md` | 기능을 어디서 시작할지 모를 때 |
@@ -139,6 +142,7 @@ TASK-001, TASK-0042, TASK-1207      정규식: ^TASK-\d{3,}$
 ```
 
 한 가지 형식만 쓴다. 자릿수를 보존한다 (`TASK-121` ≠ `TASK-0121`).
+요청(계획 단위)은 `REQ-001` (`^REQ-\d{3,}$`) — 요청 하나가 태스크 0~n 개가 된다.
 `TASK-task-001` 같은 이중접두는 훅이 차단한다.
 
 ---

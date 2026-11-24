@@ -8,9 +8,18 @@
 
 ---
 
-## 두 계층
+## 두 계층 — 그리고 그 앞의 계획
+
+말로 받은 요청은 **계획(BRIEF)** 에서 시작한다. 계획이 확정되면 그 수정 범위가 Foundation 문서와 태스크를 만든다.
 
 ```
+  사용자 요청 ─► /wf-plan
+                  1차 계획 → 역할별 리뷰 · 시안(화면이면) · 결정 대화 → 확정(HITL#0)
+                  │ 수정 범위 (route_brief.py)
+                  ├─► product.md 범위 · ADR · architecture · design 토큰
+                  ├─► features/*.md (태스크 2개 이상이거나 새 화면)
+                  └─► tasks.json → 첫 태스크 시작
+                                  │
 ┌─ Foundation ── 프로젝트 수준. 자주 바뀌지 않는다 ──────────┐
 │                                                            │
 │   product.md  ──►  architecture.md  ──►  ADR-NNNN.md       │
@@ -42,8 +51,9 @@ Phase 5 회고가 Foundation을 되먹이는 것이 이 구조의 핵심이다 �
 
 | 지금 상황 | 할 일 |
 |---|---|
+| **만들거나 고칠 것이 있다 (기본)** | `/wf-plan "<요청>"` — 계획 → 확정 → ADR·기능 문서·태스크 자동 생성 → 첫 태스크 시작 |
 | 프로젝트를 막 시작했다 | `/wf-init` — product → architecture → 첫 ADR |
-| 새 기능을 만들고 싶다 | `/wf-feature <이름>` → 요구사항 문서 작성 |
+| 구현 전에 기능을 문서로 먼저 정리하고 싶다 | `/wf-feature <이름>` → 요구사항 문서 작성 |
 | 요구사항 문서가 준비됐다 | `/wf-tasks-from-doc docs/product/features/<이름>.md` |
 | 태스크 하나만 급히 필요하다 | `/wf-task-new "설명"` |
 | 기술 선택을 했다 | `/wf-adr "<결정 요약>"` |
