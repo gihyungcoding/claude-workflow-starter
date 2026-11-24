@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>시안 렌더링 검사</title>
+<style>body{font:13px/1.5 ui-monospace,monospace;margin:16px} iframe{position:absolute;left:-99999px;top:0;border:0} .bad{color:#b00020} .ok{color:#137b5e}</style></head>
+<body>
+<!--
+  시안 렌더링 검사 — 파일만으로는 모르는 것(대비·크기·넘침·글자 단계)을 실제 렌더링으로 잰다.
+  build_canvas.py 가 시안 폴더에 복사한다. 시안 폴더를 http 로 띄운 뒤 /audit.html 을 연다
+  (file:// 에서는 iframe 안을 읽지 못한다). 결과는 화면과 window.__audit 에 남는다 — audit.json 으로 저장한다.
+
+  모바일 화면은 375px, 데스크톱 화면(screens.json 의 desktop)은 1280px 로 잰다.
+  기준은 k-style-ui-ux(MIT) docs/success-criteria.md 의 측정 항목에서 왔고, 데스크톱 기준을 더했다.
+-->
+<h1>시안 렌더링 검사</h1>
+<p id="status">재는 중…</p>
+<pre id="out"></pre>
+<script>
+const LIMITS = {
+  font_sizes: 7, font_weights: 3, font_families: 2, radii: 4, shadows: 3, spacing_4x: 0.95,
+  primary: 1, line_chars: 80, touch: {375: 44, 1280: 24},
+};
+function parseRGB(s){const m=s.match(/rgba?\(([^)]+)\)/);if(!m)return null;const p=m[1].split(/[ ,\/]+/).filter(Boolean).map(Number);return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};}
+function lum(c){const f=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(c.r)+0.7152*f(c.g)+0.0722*f(c.b);}
+function ratio(a,b){const l1=lum(a),l2=lum(b);return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);}
+function bgOf(el,win){while(el){const c=parseRGB(win.getComputedStyle(el).backgroundColor);if(c&&c.a>0.5)return c;el=el.parentElement;}return {r:255,g:255,b:255,a:1};}
+
+function measure(doc, win, width) {
+  const visible = e => { const r = e.getBoundingClientRect(), s = win.getComputedStyle(e); return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none"; };
+  const all = [...doc.body.querySelectorAll("*")].filter(visible);
+  const textEls = all.filter(e => [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
+  const sizes = new Map(), weights = new Set(), fams = new Set(), problems = [];
+  let minFont = 99;
+  for (const e of textEls) {
+    const s = win.getComputedStyle(e), fs = parseFloat(s.fontSize);
+    const len = [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join("").length;
+    sizes.set(fs, (sizes.get(fs) || 0) + len); weights.add(s.fontWeight);
+    fams.add(s.fontFamily.split(",")[0].replace(/["']/g, "").trim()); minFont = Math.min(minFont, fs);
+    const fg = parseRGB(s.color);
+    if (fg && fg.a > 0.5) {
+      const large = fs >= 24 || (fs >= 18.66 && +s.fontWeight >= 700), r = ratio(fg, bgOf(e, win));
+      if (r < (large ? 3 : 4.5)) problems.push(`대비 ${r.toFixed(2)}:1 — "${e.textContent.trim().slice(0, 16)}"`);
+    }
+    if (width >= 1024 && /[가-힣]/.test(e.textContent) && e.getBoundingClientRect().width / fs > LIMITS.line_chars)
+      problems.push(`한 줄이 ${LIMITS.line_chars}자를 넘는다 — "${e.textContent.trim().slice(0, 16)}"`);
+  }
+  const radii = new Set(), shadows = new Set(); let sp = 0, sp4 = 0;
+  for (const e of all) {
+    const s = win.getComputedStyle(e);
+    if (parseFloat(s.borderTopLeftRadius) > 0 && parseFloat(s.borderTopLeftRadius) < 500) radii.add(s.borderTopLeftRadius);
+    if (s.boxShadow !== "none") shadows.add(s.boxShadow);
+    for (const p of ["paddingTop", "paddingLeft", "marginTop", "marginBottom", "rowGap", "columnGap"]) {
+      const v = parseFloat(s[p]); if (v > 0) { sp++; if (Math.round(v) % 4 === 0) sp4++; }
+    }
+  }
+  const minTap = LIMITS.touch[width] || 44;
+  for (const e of all.filter(e => e.matches("a[href],button,input,select,textarea,[role=button]"))) {
+    const r = e.getBoundingClientRect();
+    if (r.height < minTap && !(e.closest("p") && e.tagName === "A")) problems.push(`누르는 곳이 ${Math.round(r.width)}×${Math.round(r.height)} — ${minTap}px 미만 "${e.textContent.trim().slice(0, 12)}"`);
+  }
+  const primaries = doc.querySelectorAll(".btn.primary").length;
+  const h1 = doc.querySelectorAll("h1").length;
+  const overflow = doc.documentElement.scrollWidth > win.innerWidth + 1;
+  const m = {
+    font_sizes: sizes.size, font_weights: weights.size, font_families: fams.size, min_font: minFont,
+    radii: radii.size, shadows: shadows.size, spacing_4x: sp ? +(sp4 / sp).toFixed(2) : 1,
+    primary: primaries, h1, overflow,
+  };
+  if (h1 !== 1) problems.push(`h1 이 ${h1}개`);
+  if (primaries > LIMITS.primary) problems.push(`주 버튼이 ${primaries}개`);
+  if (overflow) problems.push("가로로 넘친다");
+  for (const k of ["font_sizes", "font_weights", "font_families", "radii", "shadows"])
+    if (m[k] > LIMITS[k]) problems.push(`${k} ${m[k]} — 상한 ${LIMITS[k]}`);
+  if (m.spacing_4x < LIMITS.spacing_4x) problems.push(`4px 격자 ${Math.round(m.spacing_4x * 100)}% — ${LIMITS.spacing_4x * 100}% 이상`);
+  if (minFont < 12) problems.push(`글자가 ${minFont}px — 12px 이상`);
+  return { metrics: m, problems: [...new Set(problems)] };
+}
+
+async function run() {
+  const m = await (await fetch("screens.json?" + Date.now())).json();
+  const jobs = [
+    ...(m.screens || []).map(s => ({ id: s.id, file: s.file || `screens/${s.id}.html`, width: 375 })),
+    ...(m.desktop || []).map(d => ({ id: d.id, file: d.file || `screens/desktop/${d.id}.html`, width: 1280 })),
+  ];
+  const result = { measured_at: new Date().toISOString(), screens: {}, failed: [] };
+  for (const j of jobs) {
+    document.getElementById("status").textContent = `재는 중… ${j.id}`;
+    const f = document.createElement("iframe"); f.width = j.width; f.height = j.width === 375 ? 812 : 800;
+    f.src = j.file + "?audit=" + Date.now(); document.body.appendChild(f);
+    await new Promise(r => { f.onload = r; f.onerror = r; });
+    try { await f.contentDocument.fonts.ready; } catch (e) {}
+    await new Promise(r => setTimeout(r, 200));
+    try { result.screens[j.id] = { width: j.width, ...measure(f.contentDocument, f.contentWindow, j.width) }; }
+    catch (e) { result.screens[j.id] = { width: j.width, problems: ["읽을 수 없음: " + e] }; }
+    if (result.screens[j.id].problems.length) result.failed.push(j.id);
+    f.remove();
+  }
+  result.pass = result.failed.length === 0;
+  window.__audit = result;
+  const st = document.getElementById("status");
+  st.className = result.pass ? "ok" : "bad";
+  st.textContent = result.pass ? `통과 — ${jobs.length}개 화면` : `${result.failed.length}개 화면에 문제 — ${result.failed.join(", ")}`;
+  document.getElementById("out").textContent = JSON.stringify(result, null, 1);
+}
+run();
+</script>
+</body></html>
