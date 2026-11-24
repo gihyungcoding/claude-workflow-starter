@@ -29,6 +29,9 @@ TASK-<숫자 3자리 이상>        예: TASK-001, TASK-0042, TASK-1207
 
 ```
 workflow_design/
+├── 01_brief/
+│   ├── BRIEF_<REQ-ID>.json                 # Phase 1 앞부분 — 요청 하나의 계획 (brief-schema.md)
+│   └── mockup/<REQ-ID>/                    # Lock 시점의 시안 증거 (screens.json · screens/ · 캡처)
 ├── 02_tasks/
 │   └── tasks.json                          # 태스크 배열 (단일 파일)
 ├── 04_plan/
@@ -43,9 +46,14 @@ workflow_design/
 │   └── DEV_<TASK-ID>.json                  # Phase 3
 ├── 07_verify/
 │   └── VERIFY_<TASK-ID>.json               # Phase 4
-└── 08_reflect/
-    └── REFLECT_<TASK-ID>.json              # Phase 5
+├── 08_reflect/
+│   └── REFLECT_<TASK-ID>.json              # Phase 5
+└── 09_telemetry/
+    └── <TASK-ID|REQ-ID>.jsonl              # 로컬 이벤트 기록 (wf_event.py) — ID 마다 한 파일
 ```
+
+요청 ID 는 `REQ-` + 숫자 3자리 이상(`^REQ-\d{3,}$`)이다. 요청 하나가 태스크 0~n 개가 되므로
+태스크 ID 와 따로 둔다 (→ `brief-schema.md` §1).
 
 **파일명에 슬러그를 붙이지 않는다.** 원본은 `CONTEXT_PLAN_TASK-019_store-ranking.json` 처럼
 제목 슬러그를 붙였는데, 같은 태스크의 슬러그가 Phase마다 달라지면서 게이트가 glob으로
@@ -53,9 +61,12 @@ workflow_design/
 
 ### 허용 디렉터리 목록 (이 외 `workflow_design/NN_*` 은 전부 거부)
 
-`02_tasks` · `04_plan` · `05_scenario` · `06_dev` · `07_verify` · `08_reflect`
+`01_brief` · `02_tasks` · `04_plan` · `05_scenario` · `06_dev` · `07_verify` · `08_reflect` · `09_telemetry`
 
-> 번호가 03, 그리고 01이 비어 있는 것은 원본의 PRD/매칭 단계(01_prd, 03_prd_to_tdd_case,
+`01_brief/` 에는 `BRIEF_<REQ-ID>.json` 과 `mockup/<REQ-ID>/…` 만, `09_telemetry/` 에는
+`<TASK-ID|REQ-ID>.jsonl` 만 둔다 — 훅이 파일명까지 본다.
+
+> 번호 03 이 비어 있는 것은 원본의 PRD/매칭 단계(01_prd, 03_prd_to_tdd_case,
 > 04_matching_output)를 이식하지 않았기 때문이다. 번호를 다시 매기지 않은 이유는 원본 저장소와
 > 대조할 때 단계 대응이 바로 보이게 하기 위해서다. 새 단계가 필요하면 빈 번호를 쓴다.
 

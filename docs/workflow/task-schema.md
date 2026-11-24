@@ -97,6 +97,7 @@
   },
 
   "source_refs": {                       // 이 태스크의 출처
+    "request_id": "REQ-001",             // 요청(BRIEF)에서 나온 태스크 — brief-schema.md
     "source_file": "docs/product/features/store-search-permission.md",
     "sections": ["1-2"],                 // 어느 섹션에서 왔나
     "sections_with_ranges": [            // 더 정확한 위치

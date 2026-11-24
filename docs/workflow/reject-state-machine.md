@@ -76,6 +76,27 @@ DEPENDENCY_NOT_READY     선행 태스크·외부 API 미준비      → BLOCKED
 
 ---
 
+### 계획을 고쳤으면 — 어디부터 다시 하나 (`plan_impact.py`)
+
+거절 사유로 계획(PLAN·BRIEF)을 고쳤다면, 되돌아갈 곳을 짐작하지 않고 고치기 전 커밋과 비교한다.
+
+```bash
+python3 scripts/plan_impact.py --task-id TASK-001 --from <고치기 전 커밋>
+python3 scripts/plan_impact.py --req REQ-001 --from <locked_commit>
+```
+
+| 바뀐 것 | 다시 시작할 곳 |
+|---|---|
+| 목표 · 분할 · route | 태스크 재구성 (`ROLLBACK_TASK`) |
+| 수정 범위(BRIEF `scope`) · 시안 의견 중 새 데이터 | 후속 작업 추가 (`route_brief.py`) |
+| 결정 · 가정 | Phase 1 정규화 (`ROLLBACK_PLAN`) |
+| 완료 조건 · 입출력 · 흐름 · 입력 필드 · 완전성 보강 · 시안의 상태·화면 | 2a (`RETRY_SCENARIO`) |
+| 테스트 힌트 · 기존 테스트 | 2b (`RETRY_RED_CODE`) |
+| 변경 대상 · 재사용 · 접근 · 시안의 시각만 | 3 |
+| 범위 외 · 자세 | 기록만 |
+
+지금 Phase 보다 뒤에서 반영해도 되면 되돌아가지 않는다(exit 0). 앞이면 exit 1 — 그 Phase 로 간다.
+
 ## 3. 재시도 상한
 
 ```jsonc

@@ -31,9 +31,14 @@ from pathlib import Path
 
 TASK_ID_RE = re.compile(r"^TASK-\d{3,}$")
 
+#: 요청(REQ) — 사용자 프롬프트 하나에서 시작한 계획 단위. 태스크 0~n 개가 된다.
+#: 태스크가 생기기 전에 계획이 있어야 하므로 태스크 ID 를 빌리지 않고 따로 둔다 (brief-schema.md §1).
+REQ_ID_RE = re.compile(r"^REQ-\d{3,}$")
+
 #: workflow_design/ 아래 허용되는 디렉터리. 화이트리스트다 — 목록에 없으면 거부한다.
+#: 01_brief 는 계획(BRIEF)과 시안, 09_telemetry 는 로컬 이벤트 기록이다.
 ALLOWED_WORKFLOW_DIRS = frozenset(
-    {"02_tasks", "04_plan", "05_scenario", "06_dev", "07_verify", "08_reflect"}
+    {"01_brief", "02_tasks", "04_plan", "05_scenario", "06_dev", "07_verify", "08_reflect", "09_telemetry"}
 )
 
 #: Phase 별 산출물 파일명 패턴. {task_id} 를 치환해 쓴다.
@@ -152,8 +157,27 @@ def artifact_path(task_id: str, phase: str) -> Path | None:
 # --- 검증 ---
 
 
+def brief_path(req_id: str) -> Path:
+    """요청 하나의 계획 — workflow_design/01_brief/BRIEF_<REQ-ID>.json"""
+    return workflow_design_root() / "01_brief" / f"BRIEF_{req_id}.json"
+
+
+def mockup_dir(req_id: str) -> Path:
+    """Lock 시점에 남기는 시안 증거 — workflow_design/01_brief/mockup/<REQ-ID>/"""
+    return workflow_design_root() / "01_brief" / "mockup" / req_id
+
+
+def telemetry_path(record_id: str) -> Path:
+    """로컬 이벤트 기록. ID 마다 파일을 따로 둬 브랜치끼리 병합 충돌이 나지 않게 한다."""
+    return workflow_design_root() / "09_telemetry" / f"{record_id}.jsonl"
+
+
 def is_valid_task_id(task_id: str) -> bool:
     return bool(TASK_ID_RE.match(task_id))
+
+
+def is_valid_req_id(req_id: str) -> bool:
+    return bool(REQ_ID_RE.match(req_id))
 
 
 def task_id_error(task_id: str) -> str:
