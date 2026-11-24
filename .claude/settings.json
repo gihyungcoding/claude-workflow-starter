@@ -6,6 +6,7 @@
     "  PreToolUse   — 산출물 경로 규약 위반 쓰기를 차단 (문서가 아니라 실행으로 강제)",
     "  PreToolUse   — Phase 3·4 에 제약·린트 설정·승인된 테스트를 고치면 사람에게 묻는다 (protect_gates)",
     "  Stop         — 저장하지 않은 워크플로우 변경이 있으면 알림",
+    "  Pre/PostToolUse(AskUserQuestion) — 질문을 보낸 시각·답을 받은 시각을 로컬에 남긴다 (log_question, 막지 않음)",
     "python3 을 쓰는 이유: 스크립트가 표준 라이브러리만 쓰므로 가상환경이 필요 없다."
   ],
   "hooks": {
@@ -35,6 +36,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/log_question.py\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
@@ -43,6 +54,18 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/check_uncommitted.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/log_question.py\"",
             "timeout": 10
           }
         ]
