@@ -19,6 +19,7 @@
 
 | # | 언제 | 무엇을 검토하나 | 승인 기록 — **여기가 정본** | 다음 Phase 를 막는가 |
 |---|---|---|---|---|
+| **0** | 1 (Lock) | 요청 계획 — 완료 조건 · 사용자 결정 · 취향 목록 · 완전성 보강 · 시안 · 이어서 할 일 | `BRIEF_<REQ>.json` → `human_review.approved: true` · `locked_commit` (→ `brief-schema.md`) | 막는다 — 확정 전에는 후속 작업을 시작하지 않는다 |
 | **1·2** | 2b 끝 | 시나리오 + 독립검증 결과 + Red 테스트 코드 | `SCENARIO_<ID>.json` → `human_input.generate_red_trigger: true` **그리고** `TEST_<ID>.json` → `human_review.approved: true` — 한 번의 응답으로 둘 다 쓴다 | 막는다 |
 | **3** | 4 | 검증 리포트 | `VERIFY_<ID>.json` → `human_review.decision` | 막는다 |
 | **4** | `/wf-retro` | 회고 + 완료 리포트 (여러 태스크를 모아) | `REFLECT_<ID>.json` → `completion_report.approved_by_human: true` | **막지 않는다** — 태스크는 이미 닫혔다 |

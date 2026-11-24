@@ -1,6 +1,6 @@
 # Phase 1 설계 점검 — 놓치기 쉬운 다섯 가지
 
-`wf-plan` Step 1.5 · 2 · 4 에서 참조한다. 모두 **실사용에서 Phase 2a·4 까지 가서야 드러난**
+`references/normalize.md` Step 1.5 · 2 · 4 와 Draft 조사에서 참조한다. 모두 **실사용에서 Phase 2a·4 까지 가서야 드러난**
 것들이다. 각각 Phase 1 에서 5분이면 확인된다.
 
 ---

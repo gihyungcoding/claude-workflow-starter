@@ -202,6 +202,8 @@ ARCH-001 위반 — src/api/store_search.py:12
 - 전체 테스트 스위트가 통과하는가
 - 변경한 함수를 호출하는 다른 코드가 있는가 (Grep)
 - Plan에 없던 파일을 고쳤는가 (`DEV_<ID>.json` 의 `scope_deviations`)
+- **요청 계획과 어긋났는가** — 태스크의 요청 BRIEF 에서 `out_of_scope` 항목이나 `declined` 결정이 구현됐으면 범위 확장,
+  `approved` 사용자 결정(정책·문구)이 구현에 없으면 누락이다. 둘 다 `scope_deviations` 와 같은 무게로 보고한다
 
 결과는 `VERIFY_<ID>.json` 에 들어가므로 따로 저장하지 않는다.
 

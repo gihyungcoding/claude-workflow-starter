@@ -73,6 +73,12 @@ git 이력을 라운드로 묶어야 보인다. 체크포인트의 되돌아간 
 - `DEV_<ID>.json` 의 `scope_deviations` → 계획을 벗어난 곳
 - Phase 4 라운드 수와 각 라운드의 판정 사유 → 되돌아간 횟수의 실제 값
 - PLAN 의 `exploration` → Phase 1 조사 시험의 판정 재료 (`wf-plan/references/explore-trial.md`)
+- **계획 정확도** — 태스크의 요청 BRIEF(`source_refs.request_id`)에서:
+  - `decisions` 중 `reopened_in` 이 있는 것 → 확정 뒤 어느 Phase 에서 다시 열렸나. 계획 단계가 물었어야 할 질문이
+    무엇이었는지가 `wf-plan/references/reviews.md` 체크리스트의 개선 재료다
+  - `git diff <draft_commit> <locked_commit> -- <BRIEF>` → 대화로 1차 계획이 얼마나 바뀌었나
+  - `python3 scripts/wf_event.py --id <REQ> --summary` → 질문 대기 시간, 역할별 소견 채택률. 채택이 계속 0 인 역할은
+    끄자는 제안(대상 `.claude/skills/wf-plan/references/reviews.md`)으로
 
 ### Step 2 — KPT 분석
 

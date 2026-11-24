@@ -1,0 +1,241 @@
+"""ui-mockup 스킬의 스크립트 — 정적 검사·캔버스·그림 정리, 그리고 질문 기록 훅.
+
+시안 검사는 "시안을 만든 에이전트의 자기 보고"를 대신한다. 블라인드 검증에서 두 에이전트 모두
+"링크·주 버튼·h1 확인함"이라고 보고했으므로, 검사기가 거짓 통과를 내면 아무도 모른다.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import unittest
+from pathlib import Path
+
+from helpers import ProjectTestCase
+
+UM = "../.claude/skills/ui-mockup/scripts"
+CHECK = f"{UM}/check_mockup.py"
+CANVAS = f"{UM}/build_canvas.py"
+PRUNE = f"{UM}/prune_assets.py"
+HOOK = "hooks/log_question.py"
+OUT = "workflow_design/01_brief/mockup/REQ-001"
+STARTER = Path(__file__).resolve().parent.parent
+
+HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><link id="tokens" rel="stylesheet" href="{up}tokens.css"></head><body>'
+
+
+def page(body: str, up: str = "../") -> str:
+    return HEAD.format(up=up) + body + "</body></html>"
+
+
+class MockupTestCase(ProjectTestCase):
+    def setUp(self):
+        super().setUp()
+        self.project.write(f"{OUT}/tokens.css", ":root{--c-brand:#2F6FDB}\n")
+        self.project.write(f"{OUT}/assets/fluent/calendar.svg", "<svg/>")
+        self.project.write(f"{OUT}/assets/fluent/unused.svg", "<svg/>")
+        self.project.write(f"{OUT}/assets/fluent/LICENSE.md", "MIT\n")
+        self.screens = {
+            "badges": {"확정": "is-brand"},
+            "groups": ["모임"],
+            "screens": [
+                {"id": "home", "title": "홈", "group": "모임", "purpose": "지금 상황", "policies": ["정책 1"],
+                 "branches": [{"to": "detail", "label": "모임을 누르면"}]},
+                {"id": "detail", "title": "상세", "group": "모임"},
+            ],
+            "desktop": [{"id": "d-home", "title": "홈", "merges": ["home", "detail"], "pattern": "split"}],
+        }
+        self.pages = {
+            "screens/home.html": page('<h1>홈</h1><a class="row" href="detail.html"><img src="../assets/fluent/calendar.svg" alt="">'
+                                      '<span class="badge is-brand">확정</span></a><a class="btn primary" href="detail.html">만들기</a>'
+                                      '<div class="range" style="--from:20%;--to:60%"></div>'),
+            "screens/detail.html": page('<h1>상세</h1><a data-back>뒤로</a><a data-stay="저장했어요">저장</a>'),
+            "screens/desktop/d-home.html": page('<h1>홈</h1><a href="d-home.html">새로고침</a>', up="../../"),
+        }
+        self.save()
+
+    def save(self) -> None:
+        self.project.write_json(f"{OUT}/screens.json", self.screens)
+        for rel, html in self.pages.items():
+            self.project.write(f"{OUT}/{rel}", html)
+
+    def check(self) -> tuple[int, dict]:
+        return self.project.run_json(CHECK, OUT, "--json")
+
+    def assertFlags(self, needle: str) -> None:
+        self.save()
+        code, out = self.check()
+        self.assertEqual(code, 1, out)
+        self.assertTrue(any(needle in e for e in out["errors"]), f"{needle!r} 없음: {out['errors']}")
+
+
+class CheckMockupTest(MockupTestCase):
+    def test_valid_mockup_passes(self):
+        code, out = self.check()
+        self.assertEqual(code, 0, out)
+
+    def test_two_h1(self):
+        self.pages["screens/detail.html"] = page("<h1>a</h1><h1>b</h1>")
+        self.assertFlags("h1 이 2개")
+
+    def test_two_primary_buttons(self):
+        self.pages["screens/detail.html"] = page('<h1>a</h1><button class="btn primary">a</button><a class="primary btn full">b</a>')
+        self.assertFlags("주 버튼")
+
+    def test_inline_style(self):
+        self.pages["screens/detail.html"] = page('<h1>a</h1><p style="color:red">x</p>')
+        self.assertFlags("인라인 style")
+
+    def test_color_in_style_block(self):
+        self.pages["screens/detail.html"] = page("<style>.x{color:#ff0000}</style><h1>a</h1>")
+        self.assertFlags("색 값")
+
+    def test_emoji(self):
+        self.pages["screens/detail.html"] = page("<h1>축하해요 \U0001F389</h1>")
+        self.assertFlags("이모지")
+
+    def test_broken_link(self):
+        self.pages["screens/detail.html"] = page('<h1>a</h1><a href="nowhere.html">x</a>')
+        self.assertFlags("nowhere.html")
+
+    def test_missing_image(self):
+        self.pages["screens/detail.html"] = page('<h1>a</h1><img src="../assets/fluent/none.svg" alt="">')
+        self.assertFlags("이미지 파일이 없다")
+
+    def test_missing_screen_file(self):
+        self.screens["screens"].append({"id": "ghost", "group": "모임"})
+        self.screens["desktop"][0]["merges"].append("ghost")
+        self.assertFlags("ghost")
+
+    def test_branch_to_unknown_screen(self):
+        self.screens["screens"][0]["branches"] = [{"to": "elsewhere"}]
+        self.assertFlags("elsewhere")
+
+    def test_mobile_screen_must_belong_to_exactly_one_desktop_view(self):
+        self.screens["desktop"][0]["merges"] = ["home"]
+        self.assertFlags("detail: 데스크톱 화면 0개")
+        self.screens["desktop"].append({"id": "d-home", "merges": ["detail", "home"]})
+        self.assertFlags("home: 데스크톱 화면 2개")
+
+    def test_desktop_is_optional(self):
+        del self.screens["desktop"]
+        self.save()
+        self.assertEqual(self.check()[0], 0)
+
+    def test_unknown_badge_color_is_a_warning(self):
+        self.pages["screens/detail.html"] = page('<h1>a</h1><span class="badge is-danger">실패</span>')
+        self.save()
+        code, out = self.check()
+        self.assertEqual(code, 0)
+        self.assertTrue(any("is-danger" in w for w in out["warnings"]))
+
+    def test_unreadable_folder_is_an_argument_error(self):
+        self.assertEqual(self.project.run(CHECK, "workflow_design/01_brief/mockup/REQ-999").returncode, 2)
+
+
+class BuildCanvasTest(MockupTestCase):
+    def data(self) -> dict:
+        html = self.project.path(f"{OUT}/index.html").read_text(encoding="utf-8")
+        m = re.search(r'<script id="hd-data" type="application/json">(.*?)</script>', html, re.S)
+        return json.loads(m.group(1).replace("<\\/", "</"))
+
+    def test_builds_mobile_and_desktop_rows(self):
+        out = self.project.run(CANVAS, OUT)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        d = self.data()
+        mobile = [r for r in d["rows"] if not r.get("desk")]
+        desk = [r for r in d["rows"] if r.get("desk")]
+        self.assertEqual([s["id"] for s in mobile[0]["screens"]], ["home", "detail"])
+        self.assertEqual(desk[0]["group"], "모임")
+        card = desk[0]["screens"][0]
+        self.assertEqual((card["id"], card["file"], card["merges"]), ("d-home", "screens/desktop/d-home.html", ["home", "detail"]))
+        self.assertEqual(d["desk_card"], {"w": 1280, "h": 800})
+        self.assertEqual(d["arrows"], [{"from": "home", "to": "detail", "label": "모임을 누르면"}])
+
+    def test_copies_audit_page_and_palette_script(self):
+        self.project.run(CANVAS, OUT)
+        for name in ("audit.html", "palette.js", "foundation.html", "components.html"):
+            with self.subTest(name=name):
+                self.assertTrue(self.project.path(f"{OUT}/{name}").is_file())
+
+    def test_feedback_header_is_ours(self):
+        self.project.run(CANVAS, OUT)
+        html = self.project.path(f"{OUT}/index.html").read_text(encoding="utf-8")
+        self.assertIn("[ui-mockup 수정 요청]", html)
+        self.assertNotIn("k-style-ui-ux 수정 요청", html)
+
+    def test_built_canvas_obeys_path_rules_and_static_check(self):
+        self.project.run(CANVAS, OUT)
+        self.assertEqual(self.project.run("hooks/check_artifact_paths.py", "--all").returncode, 0)
+        self.assertEqual(self.check()[0], 0)
+
+
+class PruneAssetsTest(MockupTestCase):
+    def test_removes_only_unreferenced_files(self):
+        out = self.project.run(PRUNE, OUT)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertTrue(self.project.path(f"{OUT}/assets/fluent/calendar.svg").is_file())
+        self.assertTrue(self.project.path(f"{OUT}/assets/fluent/LICENSE.md").is_file())
+        self.assertFalse(self.project.path(f"{OUT}/assets/fluent/unused.svg").exists())
+
+    def test_keeps_credited_photos(self):
+        self.project.write(f"{OUT}/assets/photos/hall.jpg", "x")
+        self.project.write_json(f"{OUT}/credits.json", [{"slot": "hero", "file": "assets/photos/hall.jpg", "license": "CC0"}])
+        self.project.run(PRUNE, OUT)
+        self.assertTrue(self.project.path(f"{OUT}/assets/photos/hall.jpg").is_file())
+
+    def test_dry_run_changes_nothing(self):
+        self.project.run(PRUNE, OUT, "--dry-run")
+        self.assertTrue(self.project.path(f"{OUT}/assets/fluent/unused.svg").is_file())
+
+
+class LogQuestionHookTest(ProjectTestCase):
+    def ask(self, event: str = "PreToolUse", tool: str = "AskUserQuestion") -> int:
+        payload = {"hook_event_name": event, "tool_name": tool,
+                   "tool_input": {"questions": [{"header": "동시 수정", "question": "어떻게?"}]}}
+        return self.project.run(HOOK, stdin=json.dumps(payload)).returncode
+
+    def lines(self, rid: str) -> list[dict]:
+        p = self.project.path(f"workflow_design/09_telemetry/{rid}.jsonl")
+        return [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines()] if p.exists() else []
+
+    def test_records_question_and_answer_for_refining_request(self):
+        self.project.write_json("workflow_design/01_brief/BRIEF_REQ-001.json", {"id": "REQ-001", "status": "refining"})
+        self.assertEqual(self.ask("PreToolUse"), 0)
+        self.assertEqual(self.ask("PostToolUse"), 0)
+        got = self.lines("REQ-001")
+        self.assertEqual([e["event"] for e in got], ["question_asked", "question_answered"])
+        self.assertEqual(got[0]["data"], {"n": 1, "headers": ["동시 수정"]})
+        self.assertNotIn("어떻게", json.dumps(got, ensure_ascii=False))   # 질문 본문은 남기지 않는다
+
+    def test_locked_request_is_not_a_target(self):
+        self.project.write_json("workflow_design/01_brief/BRIEF_REQ-001.json", {"id": "REQ-001", "status": "locked"})
+        self.ask()
+        self.assertEqual(self.lines("REQ-001"), [])
+
+    def test_single_active_task_is_the_fallback_target(self):
+        self.project.write("memory-bank/TASK-001/activeContext.md", "---\ntask_id: TASK-001\nstatus: ACTIVE\nphase: \"2b\"\n---\n")
+        self.ask()
+        self.assertEqual([e["event"] for e in self.lines("TASK-001")], ["question_asked"])
+
+    def test_ids_from_file_contents_cannot_escape_the_telemetry_folder(self):
+        self.project.write_json("workflow_design/01_brief/BRIEF_REQ-001.json", {"id": "../../escaped", "status": "refining"})
+        self.project.write("memory-bank/TASK-001/activeContext.md", "---\ntask_id: ../../../escaped2\nstatus: ACTIVE\n---\n")
+        self.assertEqual(self.ask(), 0)
+        self.assertEqual(list(self.project.root.rglob("escaped*")), [])
+        self.assertFalse(self.project.path("workflow_design/09_telemetry").exists())
+
+    def test_other_tools_and_garbage_never_block(self):
+        self.assertEqual(self.ask(tool="Write"), 0)
+        self.assertEqual(self.project.run(HOOK, stdin="{not json").returncode, 0)
+
+    def test_hook_is_registered_for_both_sides(self):
+        hooks = json.loads((STARTER / ".claude/settings.json").read_text(encoding="utf-8"))["hooks"]
+        for side in ("PreToolUse", "PostToolUse"):
+            with self.subTest(side=side):
+                cmds = [h["command"] for m in hooks[side] if m.get("matcher") == "AskUserQuestion" for h in m["hooks"]]
+                self.assertTrue(any("log_question.py" in c for c in cmds))
+
+
+if __name__ == "__main__":
+    unittest.main()

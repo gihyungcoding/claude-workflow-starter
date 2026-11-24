@@ -31,6 +31,8 @@ description: >-
 ## 두 계층
 
 ```
+사용자 요청 ─► /wf-plan  Intake → Draft → Refine(역할별 리뷰·시안) → Lock(HITL#0) → Dispatch
+                                                     │ 수정 범위에 따라 ▼
 Foundation (프로젝트 수준)   product.md · architecture.md · ADR · features/*.md
         │ 태스크 생성                                        ▲
         ▼                                                    │ ADR 제안 (Phase 5)
@@ -50,7 +52,7 @@ Foundation 은 이 스킬이 관장하지 않는다. `/wf-init`, `/wf-feature`, 
 
 | Phase | 스킬 | 한 문장 |
 |---|---|---|
-| 1 | `wf-plan` | 태스크를 TDD에 주입할 수 있는 구조 정보로 정규화한다 |
+| 1 | `wf-plan` | 요청을 계획(BRIEF)으로 확정하고(HITL#0) 후속 작업을 만든 뒤, 태스크마다 TDD 에 주입할 구조 정보로 정규화한다 |
 | 2a | `wf-scenario` | Given/When/Then 시나리오를 설계하고 독립검증을 받는다 |
 | 2b | `wf-red` | 시나리오를 **실패하는** 테스트 코드로 옮긴다 |
 | 3 | `wf-develop` | 테스트를 통과시키는 최소 구현을 하고 리팩토링한다 |
@@ -85,7 +87,8 @@ ls "$REPO_ROOT/memory-bank/<TASK-ID>/checkpoints/"*/ 2>/dev/null
 
 | Phase | 통과 조건 |
 |---|---|
-| **1 → 2a** | `PLAN_<ID>.json` 존재 · 파싱 성공 · `design.inputs`/`outputs`/`flows` 비어 있지 않음 · `route ∈ {Backend, Frontend, Database}` · `design.input_fields` 존재(`check_plan.py`) · `codebase_analysis` 존재 · `architecture_refs` 채워짐(아키텍처 문서가 있는 경우) · `CP-1.3` 저장 |
+| **요청 → 태스크** | `check_brief.py --req <REQ> --gate dispatch` exit 0 — 미결 결정 0 · HITL#0 승인 · 후속 작업 완료 · 태스크가 요청을 가리킴 |
+| **1 → 2a** | 태스크의 요청 BRIEF 가 `--gate locked` 통과 · `PLAN_<ID>.json` 존재 · 파싱 성공 · `design.inputs`/`outputs`/`flows` 비어 있지 않음 · `route ∈ {Backend, Frontend, Database}` · `design.input_fields` 존재(`check_plan.py`) · `codebase_analysis` 존재 · `architecture_refs` 채워짐(아키텍처 문서가 있는 경우) · `CP-1.3` 저장 |
 | **2a → 2b** | `SCENARIO_<ID>.md` + `.json` 존재 · `scenarios.length ≥ 2` (happy ≥1, error ≥1) · **입력 경계 칸 전부 판정**(`coverage_matrix.py`) · `VALIDATION_<ID>.json` 의 `overall.pass == true` · `CP-2.2` 저장 — **사람 승인은 여기서 받지 않는다** (2b 끝 통합) |
 | **2b → 3** | `TEST_<ID>.json` 존재 · `red_scenarios.length > 0` · 테스트 실행 결과가 **실제로 실패** · 테스트 함수 개수 == 시나리오 개수 · **HITL#1·2 통합 승인** — `human_review.approved == true` 그리고 `generate_red_trigger == true` (`validate_phase2a_gate.py --require-hitl`) · `CP-2.5` 저장 |
 | **3 → 4** | `DEV_<ID>.json` 존재 · `test_status == "green"` · `failed == 0` · `passed ≥ red_scenarios.length` · 린트 error 0 · 자체 리뷰 `pre_review.rounds ≥ 1` · `CP-3.4` 저장 |
@@ -144,7 +147,8 @@ Phase 1이 설계할 때 계층 배치의 기준으로 삼을 문서가 없다�
 4. `activeContext.md` · `progress.md` 작성 (→ `docs/workflow/memory-bank-spec.md`).
    **`track` 을 정해 기록한다** — 아래 「경량 경로」
 5. 작업 브랜치 생성 — `feature/task-<번호>-<짧은-slug>`
-6. 커밋 후 `wf-plan` 스킬로 넘긴다
+6. 커밋 후 `wf-plan` 의 Normalize(`references/normalize.md`)로 넘긴다. 태스크에 `source_refs.request_id` 가 없으면
+   `wf-plan` 「요청 없는 태스크」 절차로 미니 BRIEF 를 먼저 확정한다
 
 ---
 
@@ -169,7 +173,7 @@ Phase 1이 설계할 때 계층 배치의 기준으로 삼을 문서가 없다�
 
 | Phase | standard | light |
 |---|---|---|
-| 1 | 완료 보고에 flows·target_files·AC 매핑 표 | **unresolved 와 AC 매핑만** |
+| 1 | Refine 에 역할별 리뷰 전부(화면이면 시안) · 완료 보고에 flows·target_files·AC 매핑 표 | **Eng 리뷰만**(화면이 바뀌면 + 시안) · **unresolved 와 AC 매핑만** |
 | 3 | 완료 보고 상세 | **테스트 수·린트·범위 이탈만** |
 | 5 | Phase 1~5 완료 리포트를 **Artifact 로 발행** | **생략** — REFLECT JSON 과 일괄 검토 요약으로 |
 | 5 | KPT 각 2~3건 | **각 1건 이상** — 실제로 일어난 것만 |
