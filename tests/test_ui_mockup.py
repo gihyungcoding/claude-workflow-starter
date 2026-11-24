@@ -117,6 +117,13 @@ class CheckMockupTest(MockupTestCase):
         self.screens["desktop"].append({"id": "d-home", "merges": ["detail", "home"]})
         self.assertFlags("home: 데스크톱 화면 2개")
 
+    def test_single_branch_is_a_warning(self):
+        self.screens["screens"][1]["branches"] = [{"to": "home", "label": "뒤로"}]
+        self.save()
+        code, out = self.check()
+        self.assertEqual(code, 0)
+        self.assertTrue(any("갈래가 하나뿐" in w and w.startswith("detail") for w in out["warnings"]))
+
     def test_desktop_is_optional(self):
         del self.screens["desktop"]
         self.save()
@@ -157,6 +164,11 @@ class BuildCanvasTest(MockupTestCase):
         for name in ("audit.html", "palette.js", "foundation.html", "components.html"):
             with self.subTest(name=name):
                 self.assertTrue(self.project.path(f"{OUT}/{name}").is_file())
+
+    def test_side_lane_labels_are_staggered(self):
+        # 다른 줄로 넘어가는 화살표 이름표가 같은 자리에 겹치던 문제 — 놓인 자리를 피해 민다
+        tpl = (STARTER / ".claude/skills/ui-mockup/scripts/canvas_template.html").read_text(encoding="utf-8")
+        self.assertIn("ly = freeY(lx, (sg + tg) / 2)", tpl)
 
     def test_feedback_header_is_ours(self):
         self.project.run(CANVAS, OUT)
