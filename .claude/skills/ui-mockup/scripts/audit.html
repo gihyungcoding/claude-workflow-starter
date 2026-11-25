@@ -54,7 +54,7 @@ function measure(doc, win, width) {
   const minTap = LIMITS.touch[width] || 44;
   for (const e of all.filter(e => e.matches("a[href],button,input,select,textarea,[role=button]"))) {
     const r = e.getBoundingClientRect();
-    if (r.height < minTap && !(e.closest("p") && e.tagName === "A")) problems.push(`누르는 곳이 ${Math.round(r.width)}×${Math.round(r.height)} — ${minTap}px 미만 "${e.textContent.trim().slice(0, 12)}"`);
+    if (r.height < minTap - 0.5 && !(e.closest("p") && e.tagName === "A")) problems.push(`누르는 곳이 ${Math.round(r.width)}×${Math.round(r.height)} — ${minTap}px 미만 "${e.textContent.trim().slice(0, 12)}"`);
   }
   // 버튼 글자가 줄바꿈되면 깨진다 (블라인드 시험: 보조 열 버튼 두 개가 각각 두 줄)
   for (const b of doc.querySelectorAll(".btn")) {

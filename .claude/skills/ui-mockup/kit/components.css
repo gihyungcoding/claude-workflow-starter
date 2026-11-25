@@ -421,6 +421,6 @@ button.row { width: 100%; text-align: left; }
   background-image: radial-gradient(circle, var(--c-line-strong) 1.5px, transparent 2px); background-size: calc(100% / var(--cols, 20)) calc(100% / var(--rows, 8)); }
 .picker-mini-map::before { content: ""; position: absolute; left: 25%; right: 25%; top: calc(-1 * var(--stack-s)); height: 4px; border-radius: 2px; background: var(--c-line-strong); }  /* 무대 */
 .picker-mini-view { position: absolute; left: var(--x, 0%); top: var(--y, 0%); width: var(--w, 30%); height: var(--h, 50%); border-radius: 2px; border: 2px solid var(--c-brand); }
-.picker-mini-pick { position: absolute; left: var(--x, 0%); top: var(--y, 0%); width: calc(100% / var(--cols, 20)); height: calc(100% / var(--rows, 8)); border-radius: 50%; background: var(--c-brand); transform: scale(.7); }
+.picker-mini-pick { position: absolute; left: var(--x, 0%); top: var(--y, 0%); width: calc(100% / var(--cols, 20)); height: calc(100% / var(--rows, 8)); border-radius: var(--r-pill); background: var(--c-brand); transform: scale(.7); }
 .picker-mini-label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-caption); color: var(--c-text-2); }
 .picker-mini-label strong { color: var(--c-text-1); font-weight: 600; }
