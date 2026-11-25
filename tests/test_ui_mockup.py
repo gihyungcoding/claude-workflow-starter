@@ -319,3 +319,9 @@ class DataBundleTest(MockupTestCase):
         self.pages["screens/detail.html"] = page("<h1>상세</h1>" + no_account)
         self.save()
         self.assertEqual(self.check()[0], 0)
+
+    def test_state_modifiers_are_same_part(self):
+        self.pages["screens/home.html"] = page("<h1>홈</h1>" + self.PAY)
+        self.pages["screens/detail.html"] = page("<h1>상세</h1>" + self.PAY.replace('class="countdown"', 'class="countdown is-done"'))
+        self.save()
+        self.assertEqual(self.check()[0], 0)

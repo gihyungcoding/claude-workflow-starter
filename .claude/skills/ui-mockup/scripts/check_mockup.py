@@ -153,7 +153,9 @@ class _BundleParser(HTMLParser):
             self.found.append((bundle, []))
         open_b = any(x for x in self.stack)
         if a.get("data-item") and (open_b or bundle) and self.found:
-            self.found[-1][1].append((a["data-item"], " ".join(sorted((a.get("class") or "").split()))))
+            # 상태 수식어(is-*)는 부품이 아니다 — due 와 due is-done 은 같은 부품의 다른 상태
+            parts = sorted(c for c in (a.get("class") or "").split() if not c.startswith("is-"))
+            self.found[-1][1].append((a["data-item"], " ".join(parts)))
         if tag not in self.VOID:
             self.stack.append(bundle)
 
