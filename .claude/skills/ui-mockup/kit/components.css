@@ -86,7 +86,7 @@ body.has-cta .page, body:has(> .cta) .page { padding-bottom: calc(var(--h-btn) +
 
 /* 버튼 */
 .btn svg, .done svg, .block-note svg { width: 20px; height: 20px; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--stack-s); height: var(--h-btn); padding: 0 var(--block-pad); border-radius: var(--r-m); font-size: var(--fs-strong); font-weight: 600; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--stack-s); white-space: nowrap; height: var(--h-btn); padding: 0 var(--block-pad); border-radius: var(--r-m); font-size: var(--fs-strong); font-weight: 600; }
 .btn.primary { background: var(--c-brand); color: var(--c-on-brand); }
 .btn.primary:active { background: var(--c-brand-pressed); }
 .btn:disabled, .btn[aria-disabled="true"] { background: var(--c-disabled-bg); color: var(--c-text-disabled); pointer-events: none; }
@@ -118,7 +118,7 @@ body.has-cta .page, body:has(> .cta) .page { padding-bottom: calc(var(--h-btn) +
 .input { height: var(--h-btn); padding: 0 var(--stack-m); border-radius: var(--r-m); background: var(--c-fill); border: 1px solid transparent; font-size: var(--fs-body); }
 .input:focus { outline: none; border-color: var(--c-focus); background: var(--c-surface); }
 .search { display: flex; align-items: center; gap: var(--stack-s); height: var(--h-btn); margin: 0 var(--page-x) var(--stack-m); padding: 0 var(--stack-m); border-radius: var(--r-m); background: var(--c-fill); color: var(--c-text-3); }
-.search input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; font: inherit; font-size: var(--fs-body); color: var(--c-text); }
+.search input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; font: inherit; font-size: var(--fs-body); color: var(--c-text-1); }
 .search input:focus { outline: none; }
 .search:focus-within { box-shadow: inset 0 0 0 1.5px var(--c-focus); background: var(--c-surface); }
 .field.is-error .input { border-color: var(--c-danger); background: var(--c-danger-tint); }
@@ -391,3 +391,47 @@ button.row { width: 100%; text-align: left; }
 .feature-text { display: flex; flex-direction: column; gap: 4px; padding: 0 var(--page-x); }
 .feature-title { font-size: var(--fs-h2); font-weight: var(--fw-h2); line-height: var(--lh-h2); color: var(--c-text-1); }
 .feature-sub { font-size: var(--fs-sub); line-height: var(--lh-sub); color: var(--c-text-2); }
+
+/* ── 칸 고르기(좌석·자리) — ui-mockup 추가 ───────────────────────────────
+   좌석 배치도처럼 격자에서 칸을 고르는 화면. 화면마다 새로 만들지 않는다(블라인드 시험: 모바일·데스크톱이 따로 만들어
+   등급 선택 위치가 달라졌다). 구조는 모바일·데스크톱이 같다:
+   .picker > .picker-filter(등급 — 언제나 배치도 바로 위) > .picker-mini(선택) > .picker-viewport > .picker-grid > .picker-legend */
+.picker { display: flex; flex-direction: column; gap: var(--stack-m); }
+.picker-filter { display: flex; flex-direction: column; gap: var(--stack-s); }
+.picker-filter .seg { width: 100%; }
+.picker-stage { height: 28px; border-radius: var(--r-s); background: var(--c-line); color: var(--c-text-2); font-size: var(--fs-caption); font-weight: 600; display: grid; place-items: center; }
+.picker-viewport { overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: var(--stack-s); }
+.picker-grid { display: grid; gap: 4px; width: max-content; }
+.picker-row { display: flex; align-items: center; gap: 4px; }
+.picker-row-label { width: 24px; flex: none; font-size: var(--fs-caption); font-weight: 600; color: var(--c-text-2); text-align: center; }
+.seat { width: 44px; height: 44px; flex: none; border-radius: var(--r-s); background: var(--c-surface); border: 1px solid var(--c-line-strong);   /* 테두리는 border — 그림자 종류(상한 3)를 쓰지 않는다 */
+  font-size: var(--fs-caption); font-weight: 600; color: var(--c-text-1); display: grid; place-items: center; }
+.seat.is-off { background: var(--c-line); border-color: transparent; color: transparent; pointer-events: none; }        /* 고를 수 없음 — 번호를 지우고 aria-label 로 */
+.seat.is-picked { background: var(--c-brand); border-color: transparent; color: var(--c-on-brand); }
+.seat.is-gap { visibility: hidden; }                                                                             /* 통로 */
+.picker.is-overview .seat { width: 12px; height: 12px; border-radius: 2px; font-size: 0; pointer-events: none; }  /* 구역 전체 — 분포만, 누를 수 없음 */
+.picker-legend { display: flex; flex-wrap: wrap; gap: var(--stack-s) var(--stack-m); font-size: var(--fs-caption); color: var(--c-text-2); }
+.picker-legend li { display: inline-flex; align-items: center; gap: var(--stack-s); }
+.picker-legend .seat { width: 14px; height: 14px; pointer-events: none; }
+/* 미니맵 — 구역 전체의 모양(점) + 지금 보는 범위(파란 틀) + 내가 고른 칸(파란 점) + 무대 방향(위 막대).
+   회색 상자만 두면 어디를 보는지 알 수 없다(시험 실행 지적). 점은 CSS 배경으로 그린다 — 좌석이 수천 개여도 요소가 늘지 않는다.
+   인라인 CSS 변수 예외: 지도 --cols --rows(칸 수), 범위·고른 칸 --x --y --w --h(0~100%) */
+.picker-mini { display: flex; align-items: center; gap: var(--stack-m); padding: var(--stack-m); border-radius: var(--r-s); background: var(--c-bg); border: 1px solid var(--c-line); }
+.picker-mini-map { position: relative; flex: none; width: 160px; aspect-ratio: var(--cols, 20) / var(--rows, 8); margin-top: var(--stack-s);
+  background-image: radial-gradient(circle, var(--c-line-strong) 1.5px, transparent 2px); background-size: calc(100% / var(--cols, 20)) calc(100% / var(--rows, 8)); }
+.picker-mini-map::before { content: ""; position: absolute; left: 25%; right: 25%; top: calc(-1 * var(--stack-s)); height: 4px; border-radius: 2px; background: var(--c-line-strong); }  /* 무대 */
+.picker-mini-view { position: absolute; left: var(--x, 0%); top: var(--y, 0%); width: var(--w, 30%); height: var(--h, 50%); border-radius: 2px; border: 2px solid var(--c-brand); }
+.picker-mini-pick { position: absolute; left: var(--x, 0%); top: var(--y, 0%); width: calc(100% / var(--cols, 20)); height: calc(100% / var(--rows, 8)); border-radius: var(--r-pill); background: var(--c-brand); transform: scale(.7); }
+.picker-mini-label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-caption); color: var(--c-text-2); }
+.picker-mini-label strong { color: var(--c-text-1); font-weight: 600; }
+
+/* ── 기한 — 판촉이 아닌 정해진 마감(입금·제출·반납) ── ui-mockup 추가 ─────────────────
+   countdown(검은 알약)은 판촉용이다. 지켜야 하는 기한을 판촉처럼 보이면 재촉하는 광고가 된다(시험 실행: 입금 기한에 countdown).
+   상태는 같은 자리·같은 부품에서 색만 바뀐다: 기본(남음·경고) · is-done(지켰음·성공) · is-off(지남·꺼짐) */
+.due { display: flex; flex-wrap: wrap; align-items: center; gap: var(--stack-s); }
+.due-left { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 12px; border-radius: var(--r-pill);
+  background: var(--c-warning-tint); color: var(--c-warning-tint-text); font-size: var(--fs-sub); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.due-left svg { width: 16px; height: 16px; }
+.due-text { font-size: var(--fs-sub); color: var(--c-text-2); white-space: nowrap; }   /* 글은 한 덩어리 — 칩 옆에 못 들어가면 통째로 다음 줄 */
+.due.is-done .due-left { background: var(--c-success-tint); color: var(--c-success-tint-text); }
+.due.is-off .due-left { background: var(--c-fill); color: var(--c-text-2); }

@@ -56,6 +56,9 @@ from _utils import (  # noqa: E402
 )
 
 BRIEF_NAME_RE = re.compile(r"^BRIEF_(.+)\.json$")
+#: mockup/ 바로 아래에 둘 수 있는 앱 전체 캔버스 파일 — 이것 말고는 요청 폴더만
+APP_CANVAS_FILES = {"index.html", "foundation.html", "components.html", "app-screens.json",
+                    "tokens.css", "components.css", "desktop.css", "palette.js", "audit.html"}
 
 
 def _brief_path_problems(rel: str, parts: list[str]) -> list[str]:
@@ -70,6 +73,8 @@ def _brief_path_problems(rel: str, parts: list[str]) -> list[str]:
         ]
     if parts[2] != "mockup":
         return [f"01_brief 아래에는 BRIEF 파일과 mockup/ 만 둔다: '{rel}'. ({DOC_REF} §2)"]
+    if len(parts) == 4 and parts[3] in APP_CANVAS_FILES:
+        return []   # 앱 전체 캔버스 (ui-mockup build_app_canvas.py) — 요청별 시안을 모은 것
     if len(parts) >= 4 and not REQ_ID_RE.match(parts[3]):
         return [f"시안 폴더명은 요청 ID 여야 한다: '{parts[3]}' — 'REQ-001'. ({DOC_REF} §2)"]
     return []

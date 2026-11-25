@@ -282,9 +282,9 @@ def build_foundation(out):
 
 
 # ---------------------------------------------------------------- components.html
-def used_classes(out):
+def used_classes(out, files=None):
     used = set()
-    for f in (out / "screens").glob("*.html"):
+    for f in (files if files is not None else (out / "screens").glob("*.html")):
         for v in re.findall(r"""\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')""", f.read_text(encoding="utf-8", errors="ignore")):
             used.update((v[0] or v[1]).split())
     return used
@@ -334,8 +334,8 @@ def badge_section(open_tag, inner, badges):
     return f'{open_tag}{head.group(1) if head else ""}{table}</section>'
 
 
-def build_components(out, m):
-    used = used_classes(out)
+def build_components(out, m, files=None):
+    used = used_classes(out, files)
     badges = m.get("badges") or {}
     if not SPECIMENS.exists():
         sec = badge_section('<section class="spec" data-key="badge" data-title="배지">', "<h2>배지</h2>", badges) if badges else ""

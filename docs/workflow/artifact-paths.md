@@ -31,7 +31,9 @@ TASK-<숫자 3자리 이상>        예: TASK-001, TASK-0042, TASK-1207
 workflow_design/
 ├── 01_brief/
 │   ├── BRIEF_<REQ-ID>.json                 # Phase 1 앞부분 — 요청 하나의 계획 (brief-schema.md)
-│   └── mockup/<REQ-ID>/                    # Lock 시점의 시안 증거 (screens.json · screens/ · 캡처)
+│   └── mockup/
+│       ├── <REQ-ID>/                       # Lock 시점의 시안 증거 (screens.json · screens/ · 캡처)
+│       └── index.html · app-screens.json …  # 앱 전체 캔버스 — 요청별 최신 정본을 모은 것 (build_app_canvas.py)
 ├── 02_tasks/
 │   └── tasks.json                          # 태스크 배열 (단일 파일)
 ├── 04_plan/

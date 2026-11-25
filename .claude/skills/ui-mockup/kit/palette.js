@@ -5,11 +5,19 @@
    의견 고르기 — 캔버스가 postMessage({type:'hd-pick', on:true})를 보내면 마우스 올린 요소에 외곽선, 누르면 기본 동작을 막고
    parent 로 {type:'hd-picked', screen, path, text}를 보낸다(file:// 에서는 부모가 iframe 안을 직접 못 보므로 반드시 메시지). */
 (function () {
-  var KEY = 'hd-palette';
+  // 마지막 선택은 시안 폴더마다 따로 — file:// 은 모든 로컬 파일이, 같은 서버는 모든 시안이 한 저장소를 쓴다.
+  // 키를 하나만 쓰면 다른 시안에서 고른 팔레트(그 폴더에 없는 tokens-*.css)를 불러와 토큰이 통째로 빠진다(시험 실행).
+  var KEY = 'hd-palette:' + location.pathname.replace(/\/screens\/.*$/, '').replace(/\/[^/]*\.html?$/, '');
   function apply(slug) {
     var l = document.getElementById('tokens'); if (!l || !slug) return;
     var base = l.getAttribute('data-base') || l.getAttribute('href'); l.setAttribute('data-base', base);
-    l.setAttribute('href', base.replace(/tokens(-[^/]*)?\.css$/, 'tokens-' + slug + '.css'));
+    var next = base.replace(/tokens(-[^/]*)?\.css$/, 'tokens-' + slug + '.css');
+    if (next === l.getAttribute('href')) return;
+    l.onerror = function () {                      // 팔레트 파일이 없으면 기본 토큰으로 — 깨진 화면보다 기본 색이 낫다
+      l.onerror = null; l.setAttribute('href', base);
+      try { if (localStorage.getItem(KEY) === slug) localStorage.removeItem(KEY); } catch (e) {}
+    };
+    l.setAttribute('href', next);
   }
   var s = new URLSearchParams(location.search).get('p');
   try { s = s || localStorage.getItem(KEY); } catch (e) {}

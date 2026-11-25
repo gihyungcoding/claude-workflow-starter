@@ -43,8 +43,12 @@ description: >-
 ```bash
 OUT=workflow_design/01_brief/mockup/<REQ-ID>
 mkdir -p "$OUT/screens/desktop"
-cp UM/kit/components.css UM/kit/desktop.css UM/kit/palette.js "$OUT/" && cp -R UM/assets "$OUT/assets"
+python3 UM/scripts/sync_kit.py "$OUT" && cp -R UM/assets "$OUT/assets"   # 부품 파일 + kit.json(복사한 키트 버전)
 ```
+
+**키트 부품 파일은 `sync_kit.py` 로만 옮긴다.** 시안 도중 부품을 더하거나 고치면 `UM/kit/` 에 고치고 다시 `sync_kit.py` —
+시안 폴더의 css 를 직접 고치면 다음 요청이 그 부품을 못 쓴다. 정적 검사가 확정 전 시안의 부품 파일을 키트와 대조한다.
+확정된 시안은 그 시점의 기록이라 다시 옮기지 않는다.
 
 **토큰** — 프로젝트 정본을 먼저 본다.
 
@@ -108,12 +112,31 @@ python3 UM/kit/derive.py --brand "#RRGGBB" --tone warm|neutral|cool -o "$OUT/tok
 `references/desktop.md` §1 을 그대로 — 묶기 → 도메인에서 구조 끌어내기 → 화면마다 ASCII → "모바일을 늘린 것과 무엇이 다른가".
 모든 모바일 화면이 정확히 하나의 데스크톱 화면에 속한다. 결과를 `screens.json` 의 `desktop` 에 적는다.
 
+**데이터 묶음** — 두 화면 이상에 나오는 데이터 묶음(금액·기한·계좌, 예매 요약처럼)은 화면을 만들기 **전에** `layout.md` 에 정한다.
+부품 하나의 모양은 키트가 지키지만 "이 묶음을 어떤 부품들로" 는 정하지 않으면 화면마다 갈린다(시험 실행: 같은 금액이 목록 행·
+타임라인 글·숫자 카드로 넷).
+
+```markdown
+## 데이터 묶음
+
+| 묶음 | 항목(순서) | 모바일 | 데스크톱 | 왜 이 모양 |
+|---|---|---|---|---|
+| `payment` | amount, deadline, account | 금액 크게 + 기한 칩 + 계좌 행 | 같은 묶음을 본문 첫 블록에 | 금액=얼마, 기한=언제까지(행동을 재촉), 계좌=어디로 — 성격이 달라 부품도 다르다 |
+```
+
+- 화면에서 묶음을 감싼 요소에 `data-bundle="payment"`, 항목마다 `data-item="amount"`. 정적 검사가 같은 너비의 화면끼리
+  항목 순서(표 순서)와 항목의 부품(class)이 같은지 대조한다. 상태 화면에서 항목이 빠지는 것은 된다(순서는 유지)
+- **성격이 다른 항목을 같은 부품으로 나란히 두지 않는다** — 금액과 기한을 같은 크기 숫자 카드 둘로 두면 무엇이 먼저인지 모른다
+
 ## 5. 빌드
 
 - **모바일** `OUT/screens/<id>.html` — `kit/COMPONENTS.md` 뼈대(375). 화면 유형의 주인공이 첫 화면에서 가장 크게(`data-anchor`),
   그 위에 지금 상황 한 문장(`hero`). 사람 카드의 알고 싶은 것의 답을 첫 화면에 크게 — 질답지로 만들지 않는다.
 - **데스크톱** `OUT/screens/desktop/<id>.html` — `kit/DESKTOP.md` 뼈대(1280) + 모바일 부품. `layout.md` 의 ASCII 대로.
 - 누르는 것은 실제 파일 `href` / `data-back` / `data-stay="바뀐 뒤 안내 한 문장"`. 모바일은 모바일끼리, 데스크톱은 데스크톱끼리.
+- **키트에 없는 부품을 화면 안 `<style>` 로 만들지 않는다** — 모바일과 데스크톱이 따로 만들어 어긋난다(정적 검사가 경고). 좌석·자리는
+  `kit/COMPONENTS.md` 「칸 고르기」. 정말 없으면 한 화면에서 만들고 같은 흐름의 모든 화면이 같은 클래스를 쓰게 하고, 키트에 더하자고 제안한다
+- 데스크톱은 `kit/DESKTOP.md` 「뼈대」「버튼」을 지킨다 — 머리는 두 열 위, 정해진 폭, 상태 화면은 기본 화면 복사, 버튼 한 줄·`btn-row`
 - 사물은 `assets/fluent/` 일러스트, 사람은 아바타. **사진은 사용자가 준 것이나 출처·라이선스를 `credits.json`
   (`[{slot, file, author, license, url}]`)에 적을 수 있는 것만** — 없으면 사진 자리를 쓰지 않는다.
 
@@ -160,6 +183,24 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory "$OUT"
 팀과 함께 보려면 사용자가 원할 때 비공개 Artifact 로 발행한다(시안 폴더 전체 — `index.html` 이 진입점).
 
 ## 8. 끝 — BRIEF 에 남기는 것
+
+**앞 요청의 화면을 대체하면** 그 화면에 `"replaces": ["REQ-001/seat"]`(이름이 같으면 생략 — 같은 id 는 나중 요청이 이긴다).
+워크플로우 전부터 있던 시안 폴더의 화면이면 `"out:seat"`. 상태 화면은 따로 적는다(남겨야 할 상태 화면이 있을 수 있다).
+확정한 뒤 앱 전체 캔버스를 다시 만든다:
+
+```bash
+python3 UM/scripts/build_app_canvas.py [--base out]    # → workflow_design/01_brief/mockup/index.html · app-screens.json
+```
+
+화면마다 가장 최근 정본 하나를 모은다. 사람에게 "지금 앱의 화면"은 이것을 보여 준다.
+
+**프론트 부품 대응** — 시안이 쓰는 키트 부품마다 프론트 공통 부품이 있는지 대조한다:
+
+```bash
+python3 UM/scripts/ui_map.py "$OUT" [--desktop] [--init]   # 대응표 docs/product/ui-components.json
+```
+
+대응이 없는 부품(`null`)은 이 요청의 Frontend 태스크가 공통 부품으로 만든다 — `wf-plan` Dispatch 의 `tasks` 가 태스크 설명에 넣는다.
 
 - `mockup`: `status`, `rev`, `coverage`, `feedback`, (발행했으면) `artifact_url`
 - 시안이 만든 결정(제품 판단의 사용자 결정, 의견의 `screen`·`data`)은 BRIEF `decisions` 에

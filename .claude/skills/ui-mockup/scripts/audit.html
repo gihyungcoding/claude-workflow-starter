@@ -54,7 +54,25 @@ function measure(doc, win, width) {
   const minTap = LIMITS.touch[width] || 44;
   for (const e of all.filter(e => e.matches("a[href],button,input,select,textarea,[role=button]"))) {
     const r = e.getBoundingClientRect();
-    if (r.height < minTap && !(e.closest("p") && e.tagName === "A")) problems.push(`누르는 곳이 ${Math.round(r.width)}×${Math.round(r.height)} — ${minTap}px 미만 "${e.textContent.trim().slice(0, 12)}"`);
+    if (r.height < minTap - 0.5 && !(e.closest("p") && e.tagName === "A")) problems.push(`누르는 곳이 ${Math.round(r.width)}×${Math.round(r.height)} — ${minTap}px 미만 "${e.textContent.trim().slice(0, 12)}"`);
+  }
+  // 버튼 글자가 줄바꿈되면 깨진다 (블라인드 시험: 보조 열 버튼 두 개가 각각 두 줄)
+  for (const b of doc.querySelectorAll(".btn")) {
+    if (!visible(b)) continue;
+    // 글자 노드만 잰다 — 아이콘(svg)의 윗변은 글자와 달라 줄로 세면 오탐이다. 반 줄 넘게 내려간 것만 새 줄
+    const half = parseFloat(win.getComputedStyle(b).fontSize) / 2, tops = [];
+    for (let w = doc.createTreeWalker(b, 4), t; (t = w.nextNode());) { if (!t.textContent.trim()) continue;
+      const r = doc.createRange(); r.selectNodeContents(t);
+      for (const x of r.getClientRects()) if (!tops.some(v => Math.abs(v - x.top) < half)) tops.push(x.top);
+    }
+    const lines = tops.length;
+    if (lines > 1) problems.push(`버튼 글자가 ${lines}줄 — "${b.textContent.trim().slice(0, 12)}"`);
+  }
+  // 데스크톱: 보조 열이 본문 첫 박스와 같은 높이에서 시작하는가
+  const aside = doc.querySelector(".aside"), first = doc.querySelector(".main .col > *:not(.d-head), .main > .split, .main > .stats");
+  if (width >= 1024 && aside && first) {
+    const gap = Math.abs(aside.getBoundingClientRect().top - first.getBoundingClientRect().top);
+    if (gap > 8) problems.push(`보조 열과 본문 첫 박스의 시작 높이가 ${Math.round(gap)}px 어긋난다`);
   }
   const primaries = doc.querySelectorAll(".btn.primary").length;
   const h1 = doc.querySelectorAll("h1").length;
@@ -71,7 +89,10 @@ function measure(doc, win, width) {
     if (m[k] > LIMITS[k]) problems.push(`${k} ${m[k]} — 상한 ${LIMITS[k]}`);
   if (m.spacing_4x < LIMITS.spacing_4x) problems.push(`4px 격자 ${Math.round(m.spacing_4x * 100)}% — ${LIMITS.spacing_4x * 100}% 이상`);
   if (minFont < 12) problems.push(`글자가 ${minFont}px — 12px 이상`);
-  return { metrics: m, problems: [...new Set(problems)] };
+  // 상태 화면 비교용 틀 — 큰 박스의 폭(8px 단위)
+  const boxes = [...doc.querySelectorAll(".block, .panel, .stat, .split-list, .cal, .board-col, .aside, .picker")]
+    .filter(visible).map(e => Math.round(e.getBoundingClientRect().width / 8) * 8);
+  return { metrics: m, problems: [...new Set(problems)], boxes };
 }
 
 async function run() {
@@ -92,6 +113,18 @@ async function run() {
     catch (e) { result.screens[j.id] = { width: j.width, problems: ["읽을 수 없음: " + e] }; }
     if (result.screens[j.id].problems.length) result.failed.push(j.id);
     f.remove();
+  }
+  // 같은 화면의 상태 화면은 기본 화면과 틀(박스 폭 집합)이 같아야 한다 — 상태마다 폭이 달라지던 문제
+  for (const [id, s] of Object.entries(result.screens)) {
+    if (!id.includes("--") || !s.boxes) continue;
+    const base = result.screens[id.split("--")[0]];
+    if (!base || !base.boxes) continue;
+    const a = new Set(s.boxes), b = new Set(base.boxes);
+    const extra = [...a].filter(x => !b.has(x)), missing = [...b].filter(x => !a.has(x));
+    if (extra.length && missing.length) {
+      s.problems.push(`기본 화면(${id.split("--")[0]})과 박스 폭이 다르다 — 이 화면 ${extra.join("·")}px / 기본 ${missing.join("·")}px`);
+      if (!result.failed.includes(id)) result.failed.push(id);
+    }
   }
   result.pass = result.failed.length === 0;
   window.__audit = result;

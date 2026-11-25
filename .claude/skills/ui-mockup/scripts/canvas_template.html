@@ -301,7 +301,17 @@ function drawArrows() {
   });
   $$('.alabel', rowsEl).forEach(function (n) { n.remove(); });
   $$('path.ln', svg).forEach(function (n) { n.remove(); });
-  var paths = '', labels = '', k = 0, minX = LEFT;
+  var paths = '', labels = '', k = 0, minX = LEFT, placed = [];
+  /* 왼쪽 통로 이름표가 서로 덮지 않게 — 같은 통로 근처에 이미 놓인 이름표가 있으면 아래로 민다 (ui-mockup 고침) */
+  function freeY(lx, ly) {
+    for (var guard = 0; guard < 40; guard++) {
+      var hit = placed.some(function (p) { return Math.abs(p.x - lx) < 200 && Math.abs(p.y - ly) < 34; });
+      if (!hit) break;
+      ly += 36;
+    }
+    placed.push({x: lx, y: ly});
+    return ly;
+  }
   (D.arrows || []).forEach(function (a) {
     var s = box[a.from], t = box[a.to]; if (!s || !t) return;
     var d, lx, ly, side = false;
@@ -314,7 +324,7 @@ function drawArrows() {
       var sx = s.x + 60 + 24 * (k % 3), tx = t.x + 60 + 24 * (k % 3);
       var sg = s.y - off, tg = t.y - off;
       d = roundPath([[sx, s.y - 6], [sx, sg], [lane, sg], [lane, tg], [tx, tg], [tx, t.y - 8]], 18);
-      lx = lane - 12; ly = (sg + tg) / 2; side = true; k++;
+      lx = lane - 12; ly = freeY(lx, (sg + tg) / 2); side = true; k++;
       minX = Math.min(minX, lane - 240);
     }
     paths += '<path class="ln" d="' + d + '"/>';
@@ -583,7 +593,7 @@ function showTab(name) {
 $$('.tab').forEach(function (b) { b.addEventListener('click', function () { showTab(b.dataset.tab); }); });
 
 /* ---------- 팔레트: #tokens 교체 + 모든 iframe 에 postMessage + localStorage ---------- */
-var KEY = 'hd-palette', cur = null;
+var KEY = 'hd-palette:' + location.pathname.replace(/\/[^/]*\.html?$/, ''), cur = null;   // palette.js 와 같은 키 — 시안 폴더마다 따로
 function sendTo(f) { if (!cur) return; try { f.contentWindow.postMessage({type: 'hd-palette', slug: cur}, '*'); } catch (e) {} }
 function setPalette(slug) {
   cur = slug;

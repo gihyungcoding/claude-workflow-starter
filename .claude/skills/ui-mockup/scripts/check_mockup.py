@@ -16,6 +16,8 @@
 - 인라인 style 금지 (.range 의 --from/--to 만 예외) · <style> 안의 색 값 금지 · 이모지 금지
 - href · img src 가 가리키는 파일이 실재 (외부 URL·#·data-back 제외)
 - 배지 색 클래스가 screens.json badges 표에 있는 것만
+- 키트 동기화 — 확정 전 시안의 components.css·desktop.css·palette.js 가 키트와 같다 (sync_kit.py 로만 옮긴다)
+- 데이터 묶음 — layout.md 「데이터 묶음」 표의 묶음을 data-bundle 로 표시한 곳끼리(같은 너비) 항목 순서와 부품이 같다
 
 사용
 ----
@@ -39,6 +41,7 @@ import argparse
 import json
 import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 
 H1_RE = re.compile(r"<h1\b", re.I)
@@ -50,7 +53,7 @@ HREF_RE = re.compile(r"""<a\b([^>]*)>""", re.I)
 ATTR_RE = lambda name: re.compile(rf"""\b{name}\s*=\s*["']([^"']*)["']""", re.I)
 SRC_RE = re.compile(r"""<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']""", re.I)
 EMOJI_RE = re.compile("[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F000-\U0001F2FF]")
-RANGE_STYLE_RE = re.compile(r"^\s*(--from:\s*[\d.]+%;?\s*|--to:\s*[\d.]+%;?\s*)+$")
+RANGE_STYLE_RE = re.compile(r"^\s*(--(?:(?:from|to|x|y|w|h):\s*[\d.]+%|(?:cols|rows):\s*\d+);?\s*)+$")   # .range · .picker-mini 의 CSS 변수만
 BADGE_COLORS = ("is-brand", "is-warning", "is-info", "is-success", "is-danger")
 
 
@@ -71,7 +74,11 @@ def check_file(path: Path, root: Path, badge_classes: set[str], errors: list[str
         if not RANGE_STYLE_RE.match(style):
             errors.append(f"{rel}: 인라인 style 금지 — style=\"{style[:40]}\"")
             break
-    for block in STYLE_BLOCK_RE.findall(src):
+    blocks = STYLE_BLOCK_RE.findall(src)
+    if blocks:
+        warnings.append(f"{rel}: 화면 안 <style> {sum(len(b) for b in blocks)}자 — 키트 밖 부품은 화면마다 달라진다. "
+                        "키트 부품(칸 고르기 등)으로 바꾸거나, 여러 화면에 쓰이면 키트에 더하자고 제안")
+    for block in blocks:
         if COLOR_RE.search(block):
             errors.append(f"{rel}: <style> 안에 색 값을 직접 썼다 — 토큰 변수만 쓴다")
             break
@@ -103,6 +110,109 @@ def check_file(path: Path, root: Path, badge_classes: set[str], errors: list[str
                 for color in (p for p in parts if p in BADGE_COLORS):
                     if color not in badge_classes:
                         warnings.append(f"{rel}: badges 표에 없는 배지 색 {color}")
+
+
+# ── 데이터 묶음 ────────────────────────────────────────────────────────────
+# 같은 데이터(금액·기한·계좌)를 화면마다 다른 부품으로 보이던 것(시험 실행)을 막는다. 부품 하나의 모양은 키트가 지키지만
+# "이 데이터 묶음은 어떤 부품들로" 는 아무도 정하지 않아 화면마다 갈렸다. 그래서 layout.md 에 먼저 정하고 여기서 대조한다.
+BUNDLE_HEAD_RE = re.compile(r"^##\s*데이터 묶음", re.M)
+
+
+def read_bundles(root: Path) -> dict[str, list[str]]:
+    """layout.md 「## 데이터 묶음」 표 → {묶음: [항목 순서]}. 표 첫 칸 묶음 이름, 둘째 칸 항목(쉼표)."""
+    try:
+        text = (root / "layout.md").read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    m = BUNDLE_HEAD_RE.search(text)
+    if not m:
+        return {}
+    out: dict[str, list[str]] = {}
+    for line in text[m.end():].splitlines()[1:]:
+        if line.startswith("#"):
+            break
+        cells = [c.strip().strip("`") for c in line.strip().strip("|").split("|")]
+        if len(cells) < 2 or not re.fullmatch(r"[a-z][a-z0-9-]*", cells[0]):
+            continue   # 머리줄·구분줄·빈 줄
+        out[cells[0]] = [x.strip().strip("`") for x in cells[1].split(",") if x.strip()]
+    return out
+
+
+class _BundleParser(HTMLParser):
+    """data-bundle 안의 data-item 을 순서대로 모은다 — [(묶음, [(항목, 클래스)])]"""
+    VOID = {"img", "br", "hr", "input", "meta", "link", "source", "wbr", "area", "col", "embed", "track"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[str | None] = []   # 열린 요소마다 그 요소가 연 묶음 이름(없으면 None)
+        self.found: list[tuple[str, list[tuple[str, str]]]] = []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        bundle = a.get("data-bundle")
+        if bundle:
+            self.found.append((bundle, []))
+        open_b = any(x for x in self.stack)
+        if a.get("data-item") and (open_b or bundle) and self.found:
+            # 상태 수식어(is-*)는 부품이 아니다 — due 와 due is-done 은 같은 부품의 다른 상태
+            parts = sorted(c for c in (a.get("class") or "").split() if not c.startswith("is-"))
+            self.found[-1][1].append((a["data-item"], " ".join(parts)))
+        if tag not in self.VOID:
+            self.stack.append(bundle)
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag("img", attrs)   # 스스로 닫는 태그는 쌓지 않는다
+
+    def handle_endtag(self, tag):
+        if tag not in self.VOID and self.stack:
+            self.stack.pop()
+
+
+def check_bundles(root: Path, files: list[Path], errors: list[str], warnings: list[str]) -> None:
+    declared = read_bundles(root)
+    seen: dict[tuple[str, str, str], tuple[str, str]] = {}   # (너비, 묶음, 항목) → (클래스, 처음 본 화면)
+    used: set[str] = set()
+    for f in files:
+        rel = str(f.relative_to(root))
+        width = "desktop" if "/desktop/" in f.as_posix() else "mobile"
+        p = _BundleParser()
+        try:
+            p.feed(strip_scripts(f.read_text(encoding="utf-8")))
+        except Exception:  # noqa: BLE001 — 깨진 HTML 은 다른 검사가 잡는다
+            continue
+        for name, items in p.found:
+            used.add(name)
+            if name not in declared:
+                errors.append(f"{rel}: layout.md 「데이터 묶음」 표에 없는 묶음 — data-bundle=\"{name}\"")
+                continue
+            order = declared[name]
+            names = [i for i, _ in items]
+            unknown = [i for i in names if i not in order]
+            if unknown:
+                errors.append(f"{rel}: 묶음 {name} 에 정하지 않은 항목 — {', '.join(unknown)}")
+                continue
+            if names != sorted(names, key=order.index):
+                errors.append(f"{rel}: 묶음 {name} 의 항목 순서가 표와 다르다 — {', '.join(names)} (표: {', '.join(order)})")
+            if not names:
+                errors.append(f"{rel}: 묶음 {name} 에 data-item 이 없다")
+            for item, cls in items:
+                key = (width, name, item)
+                if key in seen and seen[key][0] != cls:
+                    errors.append(f"{rel}: 묶음 {name}.{item} 의 부품이 {seen[key][1]} 와 다르다 — "
+                                  f"\"{cls or '(없음)'}\" ↔ \"{seen[key][0] or '(없음)'}\"")
+                seen.setdefault(key, (cls, rel))
+    for name in sorted(set(declared) - used):
+        warnings.append(f"layout.md 의 묶음 {name} 을 쓰는 화면이 없다")
+
+
+def check_kit(root: Path, errors: list[str]) -> None:
+    """확정 전 시안의 키트 파일이 키트와 다르면 위반 — 부품을 시안 폴더에서만 고치면 다음 요청이 못 쓴다."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from sync_kit import differing, mockup_status
+    if mockup_status(root) == "approved":
+        return   # 확정된 시안은 그 시점의 기록
+    for name in differing(root):
+        errors.append(f"{name}: 키트와 다르다 — 부품은 키트(kit/{name})에 고치고 sync_kit.py 로 옮긴다")
 
 
 def run(root: Path) -> tuple[list[str], list[str], str]:
@@ -148,6 +258,8 @@ def run(root: Path) -> tuple[list[str], list[str], str]:
                 errors.append(f"{sid}: 데스크톱 화면 {len(got)}개에 묶였다 — 정확히 하나여야 한다")
     for f in files:
         check_file(f, root, badge_classes, errors, warnings)
+    check_bundles(root, files, errors, warnings)
+    check_kit(root, errors)
     return errors, warnings, ""
 
 
