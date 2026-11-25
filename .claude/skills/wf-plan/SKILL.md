@@ -144,6 +144,7 @@ python3 scripts/route_brief.py --req <ID> --write      # 작업 목록 · 경로
 | `design` | `design.md` §4·§5 와 `design-tokens.css` — 시안의 토큰·배지 표에서 |
 | `feature_doc` | `docs/product/features/<slug>.md` — §1-2 태스크 분리 표를 `split` 에서, §2 화면 설계를 시안에서 |
 | `tasks` | `task-authoring` 스킬 — `source_refs.request_id`, `split` 의 key 를 TASK ID 로, `depends_on` 변환. `validate_tasks.py`. BRIEF `tasks` 에 ID |
+| (시안이 있으면) | `tasks` 전에 `ui-mockup/scripts/ui_map.py <시안> --init` — 대응 없는 키트 부품을 그 부품을 쓰는 화면의 Frontend 태스크 설명에 "공통 부품으로 만든다"로 넣는다. 끝나면 `build_app_canvas.py` 로 앱 전체 캔버스를 다시 만든다 |
 | `start` | `/wf-start <첫 태스크>` — 기준 브랜치에서 갈라진다 |
 | `direct` | 코드 변경이 없다 — 파이프라인 밖에서 처리하고 끝 |
 

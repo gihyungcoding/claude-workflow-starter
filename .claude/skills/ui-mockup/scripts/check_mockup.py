@@ -16,6 +16,7 @@
 - 인라인 style 금지 (.range 의 --from/--to 만 예외) · <style> 안의 색 값 금지 · 이모지 금지
 - href · img src 가 가리키는 파일이 실재 (외부 URL·#·data-back 제외)
 - 배지 색 클래스가 screens.json badges 표에 있는 것만
+- 키트 동기화 — 확정 전 시안의 components.css·desktop.css·palette.js 가 키트와 같다 (sync_kit.py 로만 옮긴다)
 - 데이터 묶음 — layout.md 「데이터 묶음」 표의 묶음을 data-bundle 로 표시한 곳끼리(같은 너비) 항목 순서와 부품이 같다
 
 사용
@@ -204,6 +205,16 @@ def check_bundles(root: Path, files: list[Path], errors: list[str], warnings: li
         warnings.append(f"layout.md 의 묶음 {name} 을 쓰는 화면이 없다")
 
 
+def check_kit(root: Path, errors: list[str]) -> None:
+    """확정 전 시안의 키트 파일이 키트와 다르면 위반 — 부품을 시안 폴더에서만 고치면 다음 요청이 못 쓴다."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from sync_kit import differing, mockup_status
+    if mockup_status(root) == "approved":
+        return   # 확정된 시안은 그 시점의 기록
+    for name in differing(root):
+        errors.append(f"{name}: 키트와 다르다 — 부품은 키트(kit/{name})에 고치고 sync_kit.py 로 옮긴다")
+
+
 def run(root: Path) -> tuple[list[str], list[str], str]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -248,6 +259,7 @@ def run(root: Path) -> tuple[list[str], list[str], str]:
     for f in files:
         check_file(f, root, badge_classes, errors, warnings)
     check_bundles(root, files, errors, warnings)
+    check_kit(root, errors)
     return errors, warnings, ""
 
 

@@ -43,8 +43,12 @@ description: >-
 ```bash
 OUT=workflow_design/01_brief/mockup/<REQ-ID>
 mkdir -p "$OUT/screens/desktop"
-cp UM/kit/components.css UM/kit/desktop.css UM/kit/palette.js "$OUT/" && cp -R UM/assets "$OUT/assets"
+python3 UM/scripts/sync_kit.py "$OUT" && cp -R UM/assets "$OUT/assets"   # 부품 파일 + kit.json(복사한 키트 버전)
 ```
+
+**키트 부품 파일은 `sync_kit.py` 로만 옮긴다.** 시안 도중 부품을 더하거나 고치면 `UM/kit/` 에 고치고 다시 `sync_kit.py` —
+시안 폴더의 css 를 직접 고치면 다음 요청이 그 부품을 못 쓴다. 정적 검사가 확정 전 시안의 부품 파일을 키트와 대조한다.
+확정된 시안은 그 시점의 기록이라 다시 옮기지 않는다.
 
 **토큰** — 프로젝트 정본을 먼저 본다.
 
@@ -179,6 +183,24 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory "$OUT"
 팀과 함께 보려면 사용자가 원할 때 비공개 Artifact 로 발행한다(시안 폴더 전체 — `index.html` 이 진입점).
 
 ## 8. 끝 — BRIEF 에 남기는 것
+
+**앞 요청의 화면을 대체하면** 그 화면에 `"replaces": ["REQ-001/seat"]`(이름이 같으면 생략 — 같은 id 는 나중 요청이 이긴다).
+워크플로우 전부터 있던 시안 폴더의 화면이면 `"out:seat"`. 상태 화면은 따로 적는다(남겨야 할 상태 화면이 있을 수 있다).
+확정한 뒤 앱 전체 캔버스를 다시 만든다:
+
+```bash
+python3 UM/scripts/build_app_canvas.py [--base out]    # → workflow_design/01_brief/mockup/index.html · app-screens.json
+```
+
+화면마다 가장 최근 정본 하나를 모은다. 사람에게 "지금 앱의 화면"은 이것을 보여 준다.
+
+**프론트 부품 대응** — 시안이 쓰는 키트 부품마다 프론트 공통 부품이 있는지 대조한다:
+
+```bash
+python3 UM/scripts/ui_map.py "$OUT" [--desktop] [--init]   # 대응표 docs/product/ui-components.json
+```
+
+대응이 없는 부품(`null`)은 이 요청의 Frontend 태스크가 공통 부품으로 만든다 — `wf-plan` Dispatch 의 `tasks` 가 태스크 설명에 넣는다.
 
 - `mockup`: `status`, `rev`, `coverage`, `feedback`, (발행했으면) `artifact_url`
 - 시안이 만든 결정(제품 판단의 사용자 결정, 의견의 `screen`·`data`)은 BRIEF `decisions` 에

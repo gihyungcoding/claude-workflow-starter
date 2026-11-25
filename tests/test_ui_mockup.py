@@ -325,3 +325,139 @@ class DataBundleTest(MockupTestCase):
         self.pages["screens/detail.html"] = page("<h1>상세</h1>" + self.PAY.replace('class="countdown"', 'class="countdown is-done"'))
         self.save()
         self.assertEqual(self.check()[0], 0)
+
+
+SYNC = f"{UM}/sync_kit.py"
+APP = f"{UM}/build_app_canvas.py"
+UIMAP = f"{UM}/ui_map.py"
+KIT = STARTER / ".claude/skills/ui-mockup/kit"
+ROOT = "workflow_design/01_brief/mockup"
+
+
+class KitSyncTest(MockupTestCase):
+    """키트 부품 파일은 sync_kit 으로만 — 확정 전 시안이 키트와 다르면 위반 (시험 실행: 손 cp 로 빠뜨림)"""
+
+    def test_sync_copies_and_records_version(self):
+        out = self.project.run(SYNC, OUT)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        rec = json.loads(self.project.path(f"{OUT}/kit.json").read_text())
+        self.assertEqual(set(rec["files"]), {"components.css", "desktop.css", "palette.js"})
+        self.assertEqual(self.project.path(f"{OUT}/components.css").read_text(), (KIT / "components.css").read_text())
+
+    def test_edited_copy_fails_check_while_draft(self):
+        self.project.run(SYNC, OUT)
+        self.project.write(f"{OUT}/components.css", (KIT / "components.css").read_text() + "\n.mine { color: red; }\n")
+        self.assertFlags("components.css: 키트와 다르다")
+
+    def test_approved_mockup_is_a_snapshot(self):
+        self.project.run(SYNC, OUT)
+        self.project.write(f"{OUT}/components.css", "/* 그 시점의 키트 */")
+        self.project.write_json("workflow_design/01_brief/BRIEF_REQ-001.json", {"id": "REQ-001", "mockup": {"status": "approved"}})
+        self.save()
+        self.assertEqual(self.check()[0], 0)
+        self.assertEqual(self.project.run(SYNC, OUT).returncode, 1)   # 확정된 시안에는 다시 복사하지 않는다
+
+
+class AppCanvasTest(ProjectTestCase):
+    """요청별 시안 → 화면마다 가장 최근 정본 하나 (시험 실행: 대체 대응표를 손으로 정리)"""
+
+    def req(self, rid: str, screens: list[dict], status: str = "approved") -> None:
+        self.project.write_json(f"{ROOT}/{rid}/screens.json", {"groups": ["예매"], "screens": screens})
+        for s in screens:
+            self.project.write(f"{ROOT}/{rid}/screens/{s['id']}.html", page(f"<h1>{rid} {s['id']}</h1>"))
+        self.project.write_json(f"workflow_design/01_brief/BRIEF_{rid}.json", {"id": rid, "mockup": {"status": status}})
+
+    def build(self, *args: str) -> dict:
+        code, res = self.project.run_json(APP, ROOT, "--json", *args)
+        self.assertEqual(code, 0, res)
+        return res
+
+    def app(self) -> dict:
+        return json.loads(self.project.path(f"{ROOT}/app-screens.json").read_text())["screens"]
+
+    def test_later_request_wins_and_drops_old_states(self):
+        self.req("REQ-001", [{"id": "seat", "group": "예매"}, {"id": "seat--error", "group": "예매"}, {"id": "home", "group": "예매"}])
+        self.req("REQ-002", [{"id": "seat", "group": "예매"}])
+        res = self.build()
+        self.assertEqual(res["mobile"], 2)
+        app = self.app()
+        self.assertEqual(app["seat"]["req"], "REQ-002")
+        self.assertEqual(app["home"]["req"], "REQ-001")
+        self.assertIn("REQ-001 → REQ-002", app["seat--error"]["replaced"][0])
+        html = self.project.path(f"{ROOT}/index.html").read_text()
+        self.assertIn("REQ-002/screens/seat.html", html)
+        self.assertIn("REQ-001/screens/home.html", html)
+
+    def test_replaces_drops_only_the_named_screen(self):
+        self.req("REQ-001", [{"id": "checkout", "group": "예매"}, {"id": "checkout--error", "group": "예매"}])
+        self.req("REQ-002", [{"id": "hold", "group": "예매", "replaces": ["REQ-001/checkout"]}])
+        self.build()
+        app = self.app()
+        self.assertIn("replaced", app["checkout"])
+        self.assertEqual(app["checkout--error"].get("req"), "REQ-001")   # 남겨야 할 상태 화면이 있을 수 있다
+
+    def test_drafts_are_left_out_unless_asked(self):
+        self.req("REQ-001", [{"id": "home", "group": "예매"}])
+        self.req("REQ-002", [{"id": "home", "group": "예매"}], status="draft")
+        self.assertEqual(self.app_req_after(), "REQ-001")
+        self.build("--include-drafts")
+        self.assertEqual(self.app()["home"]["req"], "REQ-002")
+
+    def app_req_after(self) -> str:
+        self.build()
+        return self.app()["home"]["req"]
+
+    def test_base_folder_is_the_bottom_layer(self):
+        self.project.write_json("out/screens.json", {"screens": [{"id": "seat"}, {"id": "login"}]})
+        for sid in ("seat", "login"):
+            self.project.write(f"out/screens/{sid}.html", page(f"<h1>{sid}</h1>"))
+        self.req("REQ-002", [{"id": "seats", "group": "예매", "replaces": ["out:seat"]}])
+        res = self.build("--base", "out")
+        self.assertEqual(res["mobile"], 2)
+        self.assertIn("../../../out/screens/login.html", self.project.path(f"{ROOT}/index.html").read_text())
+
+    def test_app_canvas_files_pass_path_rules(self):
+        self.req("REQ-001", [{"id": "home", "group": "예매"}])
+        self.build()
+        out = self.project.run("hooks/check_artifact_paths.py", "--all")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+
+
+class UiMapTest(MockupTestCase):
+    """시안이 쓰는 키트 부품마다 프론트 부품 대응 (시험 실행: 새 부품을 태스크 설명에 손으로)"""
+
+    MAP = "docs/product/ui-components.json"
+
+    def setUp(self):
+        super().setUp()
+        self.pages["screens/home.html"] = page('<h1 class="title">홈</h1><a class="btn primary full" href="detail.html">예매</a>'
+                                               '<div class="picker"><div class="picker-mini"></div><button class="seat is-picked">1</button></div>'
+                                               '<ol class="timeline"><li class="tl-item"></li></ol>')
+        self.save()
+
+    def run_map(self, *args: str) -> tuple[int, dict]:
+        return self.project.run_json(UIMAP, OUT, "--map", self.MAP, "--json", *args)
+
+    def test_modifiers_and_sub_parts_are_not_parts(self):
+        code, res = self.run_map()
+        self.assertEqual(code, 1)
+        parts = set(res["used"])
+        self.assertTrue({"btn", "picker", "timeline", "title"} <= parts, parts)
+        self.assertFalse(parts & {"primary", "full", "picker-mini", "seat", "tl-item", "is-picked"}, parts)
+
+    def test_mapped_parts_pass_and_missing_files_fail(self):
+        self.project.write("frontend/Button.tsx", "")
+        self.project.write_json(self.MAP, {"parts": {"btn": "frontend/Button.tsx", "title": {"none": "theme 글자"},
+                                                     "timeline": {"path": "frontend/Timeline.tsx"}, "picker": "frontend/SeatPicker.tsx"}})
+        code, res = self.run_map()
+        self.assertEqual(code, 1)
+        self.assertEqual({b["part"] for b in res["broken"]}, {"timeline", "picker"})
+        self.project.write("frontend/Timeline.tsx", "")
+        self.project.write("frontend/SeatPicker.tsx", "")
+        self.assertEqual(self.run_map()[0], 0)
+
+    def test_init_adds_missing_parts_as_null(self):
+        self.run_map("--init")
+        parts = json.loads(self.project.path(self.MAP).read_text())["parts"]
+        self.assertIn("picker", parts)
+        self.assertIsNone(parts["picker"])
