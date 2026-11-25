@@ -35,7 +35,7 @@ body.desk { background: var(--c-bg); min-width: 1024px; }
 .d-head h1 { font-size: var(--fs-title); font-weight: var(--fw-title); line-height: var(--lh-title); }
 .d-head .lead { font-size: var(--fs-body); color: var(--c-text-2); }
 .d-actions { display: flex; gap: var(--stack-s); flex: none; }
-.desk .btn { height: auto; min-height: 44px; padding: 10px 20px; white-space: nowrap; }   /* 글자는 한 줄 — 좁으면 버튼 묶음이 세로로 쌓인다 */
+.desk .btn { height: auto; min-height: 44px; padding: 8px 20px; white-space: nowrap; }   /* 글자는 한 줄 — 좁으면 버튼 묶음이 세로로 쌓인다 */
 .desk .block .btn, .desk .panel .btn { align-self: flex-start; }                              /* 데스크톱에서 버튼은 내용 폭 — 꽉 채우려면 .full */
 .desk .btn.full { align-self: stretch; width: 100%; }
 /* 버튼 묶음 — 넓으면 가로, 좁은 칸(보조 열·패널)에서는 세로로 꽉 채워 쌓는다. 주 행동이 위 */

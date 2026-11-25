@@ -59,8 +59,13 @@ function measure(doc, win, width) {
   // 버튼 글자가 줄바꿈되면 깨진다 (블라인드 시험: 보조 열 버튼 두 개가 각각 두 줄)
   for (const b of doc.querySelectorAll(".btn")) {
     if (!visible(b)) continue;
-    const r = doc.createRange(); r.selectNodeContents(b);
-    const lines = [...r.getClientRects()].map(x => Math.round(x.top)).filter((v, i, a) => a.indexOf(v) === i).length;
+    // 글자 노드만 잰다 — 아이콘(svg)의 윗변은 글자와 달라 줄로 세면 오탐이다. 반 줄 넘게 내려간 것만 새 줄
+    const half = parseFloat(win.getComputedStyle(b).fontSize) / 2, tops = [];
+    for (let w = doc.createTreeWalker(b, 4), t; (t = w.nextNode());) { if (!t.textContent.trim()) continue;
+      const r = doc.createRange(); r.selectNodeContents(t);
+      for (const x of r.getClientRects()) if (!tops.some(v => Math.abs(v - x.top) < half)) tops.push(x.top);
+    }
+    const lines = tops.length;
     if (lines > 1) problems.push(`버튼 글자가 ${lines}줄 — "${b.textContent.trim().slice(0, 12)}"`);
   }
   // 데스크톱: 보조 열이 본문 첫 박스와 같은 높이에서 시작하는가
