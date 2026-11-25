@@ -148,6 +148,15 @@ class CheckArchitectureTest(ProjectTestCase):
         self.assertEqual(code, 1)
         self.assertEqual(data["error_count"], 1)
 
+    def test_kept_forbidden_path_passes_and_is_not_no_target(self):
+        # 금지 파일이 없으면 검사 파일 수가 0 이지만, 그것이 곧 통과다
+        self.project.write("src/a.py", "ok\n")
+        self.constraints(constraint("ARCH-009", "forbidden_path", '"src/legacy/**"'))
+        code, data = self.check()
+        self.assertEqual(code, 0)
+        self.assertEqual(data["no_target"], [])
+        self.assertEqual(data["status"], "pass")
+
     def test_trailing_double_star_matches_files_on_every_python_version(self):
         # 파이썬 3.12 까지 Path.glob("dir/**") 는 디렉터리만 돌려준다. 같은 제약이 버전에 따라
         # 위반을 놓치면 안 되므로 스크립트가 '**/*' 로 통일한다 (CI 가 3.10 과 3.13 을 모두 돈다).
@@ -255,6 +264,37 @@ class CheckArchitectureTest(ProjectTestCase):
         self._promote_fixture("done")
         out = self.project.run("check_architecture.py")
         self.assertIn("승격 기한이 지난", out.stdout)
+        self.assertNotIn("모두 통과", out.stdout)
+
+    # --- promote_after 누락 ---
+
+    def _missing_fixture(self, severity: str = "warn", extra: str = "") -> tuple[int, dict]:
+        self.project.write("src/a.py", "ok\n")
+        self.constraints(
+            constraint("DESIGN-001", "forbidden_pattern", '"src/**/*.py"', '"TODO"', severity=severity, extra=extra)
+        )
+        return self.check()
+
+    def test_warn_without_promote_after_is_reported_but_does_not_fail(self):
+        code, data = self._missing_fixture()
+        self.assertEqual(code, 0)
+        self.assertEqual(data["missing_promote_after"], ["DESIGN-001"])
+        self.assertEqual(data["status"], "pass")
+
+    def test_warn_with_promote_after_is_not_reported(self):
+        _, data = self._missing_fixture(extra="    promote_after: TASK-003")
+        self.assertEqual(data["missing_promote_after"], [])
+
+    def test_error_without_promote_after_is_not_reported(self):
+        _, data = self._missing_fixture(severity="error")
+        self.assertEqual(data["missing_promote_after"], [])
+
+    def test_missing_promote_after_is_printed_for_humans(self):
+        self._missing_fixture()
+        out = self.project.run("check_architecture.py")
+        self.assertEqual(out.returncode, 0)
+        self.assertIn("promote_after 가 없는 warn 제약", out.stdout)
+        self.assertIn("DESIGN-001", out.stdout)
         self.assertNotIn("모두 통과", out.stdout)
 
 

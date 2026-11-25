@@ -34,6 +34,7 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 | `docs/product/features/*.md` | 이번에 무엇을 만드는가. **§1-2 태스크 분리 표** | 태스크 추출 |
 | `docs/architecture/architecture.md` | 시스템이 어떻게 구성되는가 | **Phase 1** |
 | `docs/architecture/constraints.yaml` | 무엇을 어기면 안 되는가 (아키텍처 + 디자인) | **Phase 4** (`check_architecture.py`) |
+| `docs/architecture/conventions.md` | 코드를 어떻게 쓰는가 — 배치·이름·에러·검증·테스트 | **Phase 1·2b·3** |
 | `docs/product/design.md` | 화면이 어떻게 보이는가·왜 그런가 | **Phase 1** (Frontend), **Phase 4** |
 | `docs/product/design-tokens.css` | 색·타이포·간격의 정본 | 화면 코드 전부 |
 | `docs/decisions/ADR-*.md` | 왜 이 기술·패턴을 골랐는가 | **Phase 1** |
@@ -130,6 +131,7 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 | `docs/workflow/data-antipatterns.md` | JSON 산출물을 다루다 막혔을 때 |
 | `docs/README.md` | 기능을 어디서 시작할지 모를 때 |
 | `docs/architecture/architecture.md` | **Phase 1에서 설계할 때** |
+| `docs/architecture/conventions.md` | **Phase 1·2b·3** — 코드를 어디에 어떤 이름·형식으로 쓸지 정할 때 |
 | `docs/product/design.md` | **Frontend 태스크의 Phase 1·4** |
 | `docs/decisions/README.md` | 이미 내려진 결정을 확인할 때 |
 

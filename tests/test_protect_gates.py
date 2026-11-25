@@ -88,10 +88,27 @@ class ProtectGatesTest(ProjectTestCase):
             ".prettierrc", ".prettierrc.yaml", "prettier.config.js", "biome.json", "biome.jsonc",
             "frontend/tsconfig.json", "frontend/tsconfig.app.json", "ruff.toml", ".ruff.toml",
             "mypy.ini", ".mypy.ini", "config/checkstyle-main.xml", ".pre-commit-config.yaml",
+            "frontend/.oxlintrc.json", ".oxlintrc", "frontend/.stylelintrc.json", ".stylelintrc",
+            ".editorconfig",
         ):
             with self.subTest(rel=rel):
                 self.project.write(rel, "x\n")
                 self.assertAsks(rel)
+
+    def test_conventions_edit_during_phase3_asks(self):
+        self.task("TASK-001", phase="3")
+        self.project.write("docs/architecture/conventions.md", "x\n")
+        self.assertAsks("docs/architecture/conventions.md", "코딩 규칙", "Phase 3")
+
+    def test_conventions_edit_outside_guarded_phase_is_silent(self):
+        self.task("TASK-001", phase="1")
+        self.project.write("docs/architecture/conventions.md", "x\n")
+        self.assertSilent("docs/architecture/conventions.md")
+
+    def test_other_architecture_docs_are_not_protected(self):
+        self.task("TASK-001", phase="3")
+        self.project.write("docs/architecture/architecture.md", "x\n")
+        self.assertSilent("docs/architecture/architecture.md")
 
     def test_build_files_are_not_protected(self):
         # 의존성 추가로 정당하게 자주 바뀌므로 묻지 않는다
