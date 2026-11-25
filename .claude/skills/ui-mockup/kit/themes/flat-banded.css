@@ -1,0 +1,7 @@
+/* flat-banded — 흰 바탕, 블록 없이 구역 사이 굵은 회색 띠, 사진은 둥글게
+   도메인: 배달·장보기·여행 · 근거: 배달의민족·쿠팡이츠·여기어때·야놀자 (확인: 높음 — 여행은 사용자 확인) */
+:root {
+  --page-bg: var(--c-surface); --page-fill: var(--c-bg); --bar-bg: var(--c-surface);
+  --block-bg: var(--c-surface); --block-mx: 0px; --block-radius: 0px; --block-rule: 8px solid var(--c-bg); --page-gap: 0px;
+  --photo-radius: 12px;
+}

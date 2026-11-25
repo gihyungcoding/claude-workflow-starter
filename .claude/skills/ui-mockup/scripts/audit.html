@@ -17,7 +17,11 @@
 const LIMITS = {
   font_sizes: 7, font_weights: 3, font_families: 2, radii: 4, shadows: 3, spacing_4x: 0.95,
   primary: 1, line_chars: 80, touch: {375: 44, 1280: 24},
+  fill_edge: 1.08,     // 채운 버튼 ↔ 놓인 바탕의 대비 하한 — 같은 색이면 버튼 모양이 사라진다
+  brand_area: 0.3,     // 첫 화면에서 브랜드색·브랜드 연한 색 바탕이 덮는 면적 상한
 };
+function sameRGB(a,b){return a&&b&&Math.abs(a.r-b.r)<=3&&Math.abs(a.g-b.g)<=3&&Math.abs(a.b-b.b)<=3;}
+function tokenRGB(doc,win,name){const d=doc.createElement("div");d.style.background=`var(${name})`;doc.body.appendChild(d);const c=parseRGB(win.getComputedStyle(d).backgroundColor);d.remove();return c&&c.a>0.5?c:null;}
 function parseRGB(s){const m=s.match(/rgba?\(([^)]+)\)/);if(!m)return null;const p=m[1].split(/[ ,\/]+/).filter(Boolean).map(Number);return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};}
 function lum(c){const f=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(c.r)+0.7152*f(c.g)+0.0722*f(c.b);}
 function ratio(a,b){const l1=lum(a),l2=lum(b);return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);}
@@ -68,6 +72,32 @@ function measure(doc, win, width) {
     const lines = tops.length;
     if (lines > 1) problems.push(`버튼 글자가 ${lines}줄 — "${b.textContent.trim().slice(0, 12)}"`);
   }
+  // 채운 버튼이 놓인 바탕과 구분되는가 — 시험: 연보라 블록 위 연보라 버튼이 글자만 남았다. 글자 대비만으로는 못 잡는다
+  for (const b of all.filter(e => e.matches(".btn, .seg-item.is-selected"))) {
+    const s = win.getComputedStyle(b), fill = parseRGB(s.backgroundColor);
+    if (!fill || fill.a <= 0.5) continue;                  // 채움 없는 버튼은 대상이 아니다
+    const behind = bgOf(b.parentElement, win), bw = parseFloat(s.borderTopWidth) || 0, bc = parseRGB(s.borderTopColor);
+    const inset = /inset/.test(s.boxShadow) ? parseRGB(s.boxShadow) : null;   // 안쪽 선(box-shadow inset)으로 그린 테두리
+    const edge = Math.max(ratio(fill, behind), bw > 0 && bc && bc.a > 0.5 ? ratio(bc, behind) : 1,
+                          inset && inset.a > 0.5 ? ratio(inset, behind) : 1);
+    if (edge < LIMITS.fill_edge) problems.push(`버튼 바탕이 놓인 바탕과 같다 ${edge.toFixed(2)}:1 — "${b.textContent.trim().slice(0, 12)}"`);
+  }
+  // 브랜드색이 화면을 덮는가 — 첫 화면에서 브랜드색·브랜드 연한 색 바탕의 면적 (겹친 것은 한 번만)
+  const brandC = tokenRGB(doc, win, "--c-brand"), tintC = tokenRGB(doc, win, "--c-brand-tint");
+  if (brandC || tintC) {
+    const vw = win.innerWidth, vh = win.innerHeight; let area = 0;
+    for (const e of all) {
+      const c = parseRGB(win.getComputedStyle(e).backgroundColor);
+      if (!(c && c.a > 0.5 && (sameRGB(c, brandC) || sameRGB(c, tintC)))) continue;
+      const pc = e.parentElement ? bgOf(e.parentElement, win) : null;
+      if (pc && (sameRGB(pc, brandC) || sameRGB(pc, tintC))) continue;   // 같은 색 안에 든 것은 이미 셌다
+      const r = e.getBoundingClientRect();
+      area += Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0)) * Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+    }
+    const share = area / (vw * vh);
+    if (share > LIMITS.brand_area) problems.push(`브랜드색이 첫 화면의 ${Math.round(share * 100)}% 를 덮는다 — ${LIMITS.brand_area * 100}% 이하 (바탕·블록에 브랜드 계열 색을 쓰지 않는다)`);
+    var brandShare = +share.toFixed(2);
+  }
   // 데스크톱: 보조 열이 본문 첫 박스와 같은 높이에서 시작하는가
   const aside = doc.querySelector(".aside"), first = doc.querySelector(".main .col > *:not(.d-head), .main > .split, .main > .stats");
   if (width >= 1024 && aside && first) {
@@ -80,7 +110,7 @@ function measure(doc, win, width) {
   const m = {
     font_sizes: sizes.size, font_weights: weights.size, font_families: fams.size, min_font: minFont,
     radii: radii.size, shadows: shadows.size, spacing_4x: sp ? +(sp4 / sp).toFixed(2) : 1,
-    primary: primaries, h1, overflow,
+    primary: primaries, h1, overflow, brand_area: typeof brandShare === "number" ? brandShare : null,
   };
   if (h1 !== 1) problems.push(`h1 이 ${h1}개`);
   if (primaries > LIMITS.primary) problems.push(`주 버튼이 ${primaries}개`);

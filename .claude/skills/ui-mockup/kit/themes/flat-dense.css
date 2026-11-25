@@ -1,0 +1,7 @@
+/* flat-dense — 흰 바탕, 블록 없이 구역을 굵은 띠로, 각진 사진, 촘촘하게
+   도메인: 쇼핑·패션 · 근거: 무신사·29CM (확인: 높음) */
+:root {
+  --page-bg: var(--c-surface); --page-fill: var(--c-bg); --bar-bg: var(--c-surface);
+  --block-bg: var(--c-surface); --block-mx: 0px; --block-radius: 0px; --block-rule: 8px solid var(--c-bg); --page-gap: 0px;
+  --photo-radius: 2px; --btn-radius: 4px;
+}

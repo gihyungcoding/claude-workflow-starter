@@ -17,6 +17,8 @@
 - href · img src 가 가리키는 파일이 실재 (외부 URL·#·data-back 제외)
 - 배지 색 클래스가 screens.json badges 표에 있는 것만
 - 키트 동기화 — 확정 전 시안의 components.css·desktop.css·palette.js 가 키트와 같다 (sync_kit.py 로만 옮긴다)
+- 표면 프리셋 — screens.json surface 가 프리셋 이름이고, 모든 화면이 theme.css 를 걸고, theme.css 는 허용 변수만 바꾸며
+  바탕·블록·막대에 브랜드 계열 색을 쓰지 않는다. dark-media 면 tokens.css 가 어두운 토큰(derive.py --mode dark)
 - 데이터 묶음 — layout.md 「데이터 묶음」 표의 묶음을 data-bundle 로 표시한 곳끼리(같은 너비) 항목 순서와 부품이 같다
 
 사용
@@ -208,11 +210,64 @@ def check_bundles(root: Path, files: list[Path], errors: list[str], warnings: li
 def check_kit(root: Path, errors: list[str]) -> None:
     """확정 전 시안의 키트 파일이 키트와 다르면 위반 — 부품을 시안 폴더에서만 고치면 다음 요청이 못 쓴다."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from sync_kit import differing, mockup_status
+    from sync_kit import differing, kit_sources, mockup_status
     if mockup_status(root) == "approved":
         return   # 확정된 시안은 그 시점의 기록
+    src = kit_sources(root)
     for name in differing(root):
-        errors.append(f"{name}: 키트와 다르다 — 부품은 키트(kit/{name})에 고치고 sync_kit.py 로 옮긴다")
+        origin = src[name].relative_to(src[name].parent.parent) if name == "theme.css" else name
+        errors.append(f"{name}: 키트와 다르다 — 키트(kit/{origin})에 고치고 sync_kit.py 로 옮긴다")
+
+
+# ── 표면 프리셋(테마) ──────────────────────────────────────────────────────
+# 시험: 교육 앱에 "연한 색 판" 테마를 즉석에서 만들어 블록·버튼이 모두 연보라가 되고 버튼 모양이 사라졌다.
+# 테마는 키트가 정한 변수만, 바탕에는 브랜드 계열 색을 못 쓰게 막는다. 측정(audit.html)이 그 결과를 한 번 더 본다.
+THEME_VARS = {"--page-bg", "--page-fill", "--bar-bg", "--block-bg", "--block-mx", "--block-radius", "--block-rule", "--page-gap",
+              "--photo-radius", "--photo-bleed", "--photo-bleed-top", "--btn-radius", "--btn-depth", "--btn-depth-primary", "--font-title"}
+BG_VARS = {"--page-bg", "--page-fill", "--bar-bg", "--block-bg"}
+THEME_LINK_RE = re.compile(r"""<link\b[^>]*href\s*=\s*["'](?:\.\./)+theme\.css["']""", re.I)
+
+
+def theme_problems(css: str) -> list[str]:
+    body = re.sub(r"/\*.*?\*/", "", css, flags=re.S).strip()
+    m = re.fullmatch(r":root\s*\{([^{}]*)\}", body)
+    if not m:
+        return ["테마는 :root { 변수 } 하나만 둔다 — 다른 선택자·@import 금지"]
+    out = []
+    for decl in [d.strip() for d in m.group(1).split(";") if d.strip()]:
+        name, _, value = decl.partition(":")
+        name = name.strip()
+        if name not in THEME_VARS:
+            out.append(f"테마가 바꿀 수 없는 변수 — {name} (허용: 테마 고리 변수)")
+        elif name in BG_VARS and "--c-brand" in value:
+            out.append(f"{name} 에 브랜드 계열 색 — 바탕·블록·막대에는 쓰지 않는다")
+    return out
+
+
+def check_theme(root: Path, files: list[Path], errors: list[str]) -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from sync_kit import SURFACES, surface_of
+    try:
+        declared = json.loads((root / "screens.json").read_text(encoding="utf-8")).get("surface")
+    except (OSError, json.JSONDecodeError):
+        return
+    if declared is None:
+        return
+    if declared not in SURFACES:
+        errors.append(f"screens.json surface 가 프리셋이 아니다 — {declared!r} (가능: {', '.join(SURFACES)})")
+        return
+    theme = root / "theme.css"
+    if not theme.is_file():
+        errors.append("theme.css 가 없다 — sync_kit.py 로 프리셋을 옮긴다")
+    else:
+        errors.extend(f"theme.css: {p}" for p in theme_problems(theme.read_text(encoding="utf-8")))
+    for f in files:
+        if not THEME_LINK_RE.search(f.read_text(encoding="utf-8", errors="ignore")):
+            errors.append(f"{f.relative_to(root)}: theme.css 를 걸지 않았다 (components.css 다음 줄)")
+    if surface_of(root) == "dark-media":
+        tok = root / "tokens.css"
+        if tok.is_file() and "--mode dark" not in tok.read_text(encoding="utf-8"):
+            errors.append("dark-media 인데 tokens.css 가 밝은 토큰이다 — derive.py --mode dark 로 만든다")
 
 
 def run(root: Path) -> tuple[list[str], list[str], str]:
@@ -260,6 +315,7 @@ def run(root: Path) -> tuple[list[str], list[str], str]:
         check_file(f, root, badge_classes, errors, warnings)
     check_bundles(root, files, errors, warnings)
     check_kit(root, errors)
+    check_theme(root, files, errors)
     return errors, warnings, ""
 
 

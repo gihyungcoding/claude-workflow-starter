@@ -1,0 +1,8 @@
+/* chunky — 흰 바탕, 누르는 것마다 아래 그림자가 있는 두툼한 버튼
+   도메인: 학습·습관 · 근거: 듀오링고(누르는 요소마다 아래 4px 그림자, 16px 둥글기 — 외부 역설계 자료 여럿이 일치) (확인: 중간→높음) */
+:root {
+  --page-bg: var(--c-surface); --page-fill: var(--c-bg); --bar-bg: var(--c-surface);
+  --block-bg: var(--c-surface); --block-mx: 0px; --block-radius: 0px; --block-rule: 2px solid var(--c-line); --page-gap: 0px;
+  --btn-radius: 16px; --btn-depth: 0 4px 0 var(--c-line-strong); --btn-depth-primary: 0 4px 0 var(--c-brand-pressed);
+  --photo-radius: 16px;
+}

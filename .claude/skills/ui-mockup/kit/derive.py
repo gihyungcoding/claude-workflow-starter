@@ -316,15 +316,66 @@ def render_css(c, big, notes, label, shape, density, font):
         css += "\n/* 버튼: 흰 글자 대비가 4.5 미만 → 큰 굵은 글자(19px/700)로 WCAG 큰 글씨 기준(3:1) 충족 */\n.btn.primary { font-size: 19px; font-weight: 700; }\n"
     return css, checks, notes
 
+def lighten_until(c, bg, target):
+    h, l, s = colorsys.rgb_to_hls(*c)
+    while contrast(colorsys.hls_to_rgb(h, l, s), bg) < target and l < 0.97: l += 0.01
+    return colorsys.hls_to_rgb(h, l, s)
+
+
+def to_dark(css, brand, tone):
+    """밝은 토큰 → 어두운 화면 토큰 한 벌 (방송·영상 — 프리셋 dark-media).
+    바탕·표면·선은 tone 의 온도를 아주 옅게 띤 어둠, 글자·강조색은 표면에서 대비 기준을 넘을 때까지 밝힌다.
+    브랜드 채움 버튼은 흰 글자 4.5 를 지키게 필요하면 어둡게 한다. 바탕에 브랜드색은 쓰지 않는다."""
+    import re
+    val = lambda n: hex2rgb(re.search(rf"--{n}:\s*(#[0-9A-Fa-f]{{6}})", css).group(1))
+    th, ts = TONES.get(tone, TONES["neutral"]) if tone in TONES else (hue_deg(brand), 0.08)
+    ts = min(ts, 0.12) + 0.03
+    bg, surface = hls(th, 0.065, ts), hls(th, 0.105, ts)
+    white = (1, 1, 1)
+    d = {"c-bg": bg, "c-surface": surface, "c-line": hls(th, 0.18, ts), "c-line-strong": hls(th, 0.28, ts),
+         "c-text-1": hls(th, 0.95, 0.08), "c-text-2": lighten_until(hls(th, 0.6, 0.06), surface, 7),
+         "c-text-3": lighten_until(hls(th, 0.5, 0.06), surface, 4.6), "c-disabled-bg": hls(th, 0.16, ts)}
+    d["c-text-disabled"] = lighten_until(hls(th, 0.3, 0.05), d["c-disabled-bg"], 2.6)
+    b = brand if contrast(white, brand) >= 4.5 else darken_until(brand, white, 4.5)
+    d.update({"c-brand": b, "c-on-brand": white, "c-brand-pressed": mix(b, (0, 0, 0), .15)})
+    d["c-brand-text"] = d["c-brand-line"] = d["c-focus"] = lighten_until(brand, surface, 4.6)
+    d["c-brand-tint"] = mix(surface, brand, .24)
+    d["c-brand-tint-text"] = lighten_until(brand, d["c-brand-tint"], 4.6)
+    for n in ("success", "warning", "info", "danger"):
+        base = val(f"c-{n}")
+        d[f"c-{n}"] = lighten_until(base, surface, 4.6)
+        d[f"c-{n}-tint"] = mix(surface, base, .22)
+        d[f"c-{n}-tint-text"] = lighten_until(base, d[f"c-{n}-tint"], 4.6)
+    acc = val("c-accent")
+    d["c-accent"] = d["c-accent-text"] = lighten_until(acc, surface, 4.6)
+    for k, v in d.items():
+        css = re.sub(rf"(--{k}:\s*)#[0-9A-Fa-f]{{6}}", lambda m, v=v: m.group(1) + rgb2hex(v), css)
+    css = re.sub(r"(--c-overlay:\s*)[^;]+", r"\1rgba(0, 0, 0, .6)", css)
+    css = re.sub(r"(--shadow-1:\s*)[^;]+", r"\1 0 2px 8px rgba(0, 0, 0, .40)", css)
+    css = re.sub(r"(--shadow-2:\s*)[^;]+", r"\1 0 8px 24px rgba(0, 0, 0, .50)", css)
+    css = css.replace("이 파일은 생성물이다.", "이 파일은 생성물이다 — 어두운 화면(--mode dark).", 1)
+    checks = {"text-1/surface": contrast(d["c-text-1"], surface), "text-2/surface": contrast(d["c-text-2"], surface),
+              "text-3/surface": contrast(d["c-text-3"], surface), "on-brand/brand": contrast(white, b),
+              "brand-text/surface": contrast(d["c-brand-text"], surface), "tint-text/tint": contrast(d["c-brand-tint-text"], d["c-brand-tint"]),
+              **{f"{n}-tint-text/tint": contrast(d[f"c-{n}-tint-text"], d[f"c-{n}-tint"]) for n in ("success", "warning", "info", "danger")}}
+    return css, checks
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--brand"); ap.add_argument("--palette", help="palettes/*.json — 실제 서비스 팔레트에서 역할 색을 고른다"); ap.add_argument("--tone", default="neutral", choices=list(TONES) + ["brand"])
     ap.add_argument("--shape", default="normal", choices=SHAPES); ap.add_argument("--density", default="comfy", choices=DENSITY)
     ap.add_argument("--radius", help="실측 둥글기 r_s,r_m,r_l(px) — --shape 대신(브랜드 시드)")
     ap.add_argument("--font", default="pretendard", choices=FONTS); ap.add_argument("-o", "--out", required=True)
+    ap.add_argument("--mode", default="light", choices=("light", "dark"), help="dark — 어두운 화면 토큰 (프리셋 dark-media)")
     a = ap.parse_args()
     if a.radius: a.shape = tuple(int(x) for x in a.radius.split(","))
     css, checks, notes = derive(a.brand, a.tone, a.shape, a.density, a.font, a.palette)
+    if a.mode == "dark":
+        if not a.brand:
+            sys.exit("--mode dark 는 --brand 가 필요하다")
+        css, checks = to_dark(css, hex2rgb(a.brand), a.tone)
+        notes.append("어두운 화면 — 바탕·표면은 어둠, 글자·강조색은 표면에서 대비 기준까지 밝혔다")
     pathlib.Path(a.out).parent.mkdir(parents=True, exist_ok=True); pathlib.Path(a.out).write_text(css, encoding="utf-8")
     bad = {k: v for k, v in checks.items() if v < (3 if "큰 글씨" in k or "≥3" in k else 4.5)}
     print(f"wrote {a.out}", *notes, sep="\n")
