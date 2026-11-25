@@ -128,6 +128,16 @@ beach · calendar · car · clipboard · coffee · eyes · grandpa · child · h
 - **남은 시간** — "마감 시각이 정해진 판촉·신청이고, 남은 시간이 행동을 바꾸는가?": `<span class="countdown" role="timer" aria-label="남은 시간 3시간 25분">(시계 선 아이콘)03:25:13</span>`. 날짜 단위면 글자("D-3")로.
 
 
+## 기한 (판촉이 아닌 마감)
+**판단 질문: 사용자가 지켜야 하는 마감(입금·제출·반납)인가?** 그렇다면 `countdown`(판촉용 검은 알약)이 아니라 이것.
+```html
+<p class="due" data-item="deadline"><span class="due-left" role="timer" aria-label="입금 기한까지 9시간 54분 남음">(시계 선 아이콘)9시간 54분 남음</span><span class="due-text">오늘 오후 11:59까지</span></p>
+<p class="due is-done"><span class="due-left">(체크 선 아이콘)입금 확인</span><span class="due-text">11월 24일 (화) 오후 4:20</span></p>
+<p class="due is-off"><span class="due-left">기한 지남</span><span class="due-text">11월 21일 (금) 오후 11:59</span></p>
+```
+- 상태는 같은 자리·같은 부품에서 색만 바뀐다 — 남음(경고) · `is-done`(지켰음) · `is-off`(지남)
+- 금액 같은 "얼마" 와 같은 크기 숫자 카드로 나란히 두지 않는다. 금액 아래 한 줄로
+
 ## 칸 고르기 (좌석·자리) — 모바일·데스크톱 같은 부품
 **판단 질문: 격자에서 칸을 하나씩 골라야 하는가?**(좌석·자리·시간 칸) 화면마다 배치도를 새로 만들지 않는다 — 로컬 `<style>` 을 쓰면 모바일과 데스크톱이 달라진다.
 ```html
