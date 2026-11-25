@@ -525,3 +525,15 @@ class DarkTokensTest(MockupTestCase):
         self.assertIn("--mode dark", css)
         bg = re.search(r"--c-bg:\s*#([0-9A-F]{6})", css).group(1)
         self.assertLess(int(bg[:2], 16), 0x30)   # 어두운 바탕
+
+
+class DomainPartsTest(unittest.TestCase):
+    """도메인 부품은 키트 CSS 와 부품 문서에 함께 있어야 쓴다 (시험: 키트에 없어 글자로 때웠다)"""
+
+    def test_parts_are_defined_and_documented(self):
+        css = (KIT / "components.css").read_text()
+        doc = (KIT / "COMPONENTS.md").read_text()
+        for cls in ("photo-tag", "is-4x5", "react", "react-item", "row-amount", "week"):
+            self.assertIn(f".{cls}", css, cls)
+            self.assertIn(cls, doc, cls)
+        self.assertIn("row-trail.is-inline", css)

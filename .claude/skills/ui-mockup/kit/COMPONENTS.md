@@ -128,6 +128,15 @@ beach · calendar · car · clipboard · coffee · eyes · grandpa · child · h
 - **남은 시간** — "마감 시각이 정해진 판촉·신청이고, 남은 시간이 행동을 바꾸는가?": `<span class="countdown" role="timer" aria-label="남은 시간 3시간 25분">(시계 선 아이콘)03:25:13</span>`. 날짜 단위면 글자("D-3")로.
 
 
+## 도메인 부품 — 방송·피드·금융·학습
+- **사진 위 표시** — "썸네일 위에 상태·숫자를 얹는 도메인인가?"(방송·영상): `<div class="photo is-16x9"><img …><span class="photo-tag is-live">방송 중</span><span class="photo-tag is-bottom">1.4만 명</span></div>`. LIVE 빨강은 방송 관례라 배지 표(뜻마다 한 색)와 따로 — 사진 위에만.
+- **4:5 사진** — 피드 게시물: `photo is-4x5`.
+- **반응 줄** — "남의 글에 반응하는가?"(피드): `<div class="react"><button class="like" aria-pressed="false" aria-label="좋아요">(하트)1,284</button><a class="react-item" href="…" aria-label="댓글 48개">(말풍선)48</a><button class="react-item" aria-label="공유">(보내기)</button><button class="react-item is-end" aria-label="저장">(책갈피)</button></div>`.
+- **행 오른쪽 금액** — 계좌·내역: `<span class="row-trail"><span class="row-amount">1,284,500원</span></span>`, 들어온 돈은 `row-amount is-in`.
+- **행 오른쪽 작은 버튼** — 행마다 같은 짧은 행동(송금·담기): `<span class="row-trail is-inline"><a class="btn small tint" href="…">송금</a></span>`. `is-inline` 이 없으면 버튼은 글 아래 줄로 내려간다(긴 문구용).
+- **이번 주** — 일정형·학습의 날짜 줄·연속 기록: `<ol class="week" aria-label="이번 주 학습"><li class="is-done"><b>(체크)</b>월</li>…<li class="is-today"><b>25</b>오늘</li>…</ol>` — `<b>` 다음에 요일 글자. 칸 7개.
+- 가게·숙소 카드의 평점·시간·가격 한 줄은 `p-meta`(별점 `rating`)를 쓴다 — `s-sub` 한 줄에 몰아 넣지 않는다.
+
 ## 기한 (판촉이 아닌 마감)
 **판단 질문: 사용자가 지켜야 하는 마감(입금·제출·반납)인가?** 그렇다면 `countdown`(판촉용 검은 알약)이 아니라 이것.
 ```html
