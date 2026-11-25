@@ -107,3 +107,26 @@ class ConventionsGateTest(ProjectTestCase):
         code, out = self.gate()
         self.assertEqual(code, 0)
         self.assertTrue(out["started"] and not out["pass"] and not out["blocking"])
+
+    def test_rules_not_confirmed_by_reference_slice_block(self):
+        # 드라이런: 상태가 전부 '정함' 이어도 통과했다 — 4.5 사람 확인이 강제되지 않았다
+        self.project.write(CONV, conventions(status="정함"))
+        self.assertBlocks("C-TESTDB: 상태가 '정함'")
+
+    def test_not_applicable_item_passes(self):
+        rows = conventions().replace("| C-FE | 해당 없음 — 백엔드만 | 리뷰 | 기준 구현 확인 |", "| C-FE | 해당 없음 — 백엔드만 | — | 해당 없음 |")
+        self.project.write(CONV, rows)
+        self.assertEqual(self.gate()[0], 0)
+
+    def test_pipe_inside_cell_is_caught(self):
+        self.project.write(CONV, conventions({**ROWS, "C-LOG": "print|console 금지"}))
+        self.assertBlocks("C-LOG: 칸이 4개다")
+        self.project.write(CONV, conventions({**ROWS, "C-LOG": "print\\|console 금지"}))
+        self.assertEqual(self.gate()[0], 0)
+
+    def test_error_violation_in_reference_slice_blocks(self):
+        # 드라이런: 제약 위반이 있어도 게이트가 통과했다
+        self.project.write("src/api/echo.py", "import repo\n")
+        self.project.write("docs/architecture/constraints.yaml",
+                           HEADER + constraint("ARCH-001", "forbidden_import", '"src/api/**/*.py"', '"^import repo"'))
+        self.assertBlocks("ARCH-001: 위반 1건")

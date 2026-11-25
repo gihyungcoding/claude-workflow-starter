@@ -13,9 +13,11 @@
 -----------
 - docs/architecture/conventions.md 가 있다 · 필수 항목(C-…)이 모두 있고 결정·검사·상태가 TODO 가 아니다
 - C-TESTDB 가 운영과 "다름" 이면 ADR 번호와 전환할 태스크(TASK-…)가 결정 칸에 있다
+- 상태가 모두 '기준 구현 확인'(해당 없으면 '해당 없음', C-COMMIT 제외) — 4.5 의 사람 확인
+- 표의 칸이 정확히 4개다(칸 안의 | 는 \| 로)
 - 「기준 파일」이 하나 이상이고 모두 실재한다
 - CLAUDE.md 린트 줄이 채워져 있다(예시·TODO 가 아니다)
-- constraints.yaml: warn 인데 promote_after 가 없는 제약이 없다 · 검사 대상 없음(no_target)이 없다
+- constraints.yaml: error 위반이 없다 · warn 인데 promote_after 가 없는 제약이 없다 · 검사 대상 없음(no_target)이 없다
   (forbidden_path 는 파일이 없는 것이 통과다 — 대상 없음으로 세지 않는다)
 
 언제 막나
@@ -48,6 +50,8 @@ from check_architecture import check_one, task_statuses  # noqa: E402
 
 REQUIRED = ("C-TESTDB", "C-LINT", "C-LAYOUT", "C-ERROR", "C-VALID", "C-DATA", "C-TEST", "C-LOG", "C-FE", "C-COMMIT")
 ROW_RE = re.compile(r"^\|\s*(C-[A-Z0-9-]+)\s*\|(.*)\|\s*$")
+CELL_SPLIT = re.compile(r"(?<!\\)\|")          # 칸 안의 | 는 \| 로 적는다 (정규식 a|b)
+DONE_STATUS = ("기준 구현 확인", "해당 없음")      # 4.5 사람 확인을 거친 상태
 LINT_LINE_RE = re.compile(r"^-\s*\*\*린트\*\*\s*:\s*(.*)$", re.M)
 
 
@@ -61,15 +65,16 @@ def is_todo(cell: str) -> bool:
 
 
 def parse(text: str) -> tuple[dict[str, dict], list[str]]:
-    """→ ({id: {decision, check, status}}, [기준 파일 경로])"""
+    """→ ({id: {decision, check, status, cells}}, [기준 파일 경로])"""
     rows: dict[str, dict] = {}
     for line in text.splitlines():
         m = ROW_RE.match(line.strip())
         if not m:
             continue
-        cells = [c.strip() for c in m.group(2).split("|")]
+        cells = [c.strip() for c in CELL_SPLIT.split(m.group(2))]
+        n = len(cells)
         cells += [""] * (3 - len(cells))
-        rows[m.group(1)] = {"decision": cells[0], "check": cells[1], "status": cells[2]}
+        rows[m.group(1)] = {"decision": cells[0], "check": cells[1], "status": cells[2], "cells": n}
     refs: list[str] = []
     sec = re.search(r"^##\s*기준 파일\s*$(.*?)(?=^##\s|\Z)", text, flags=re.M | re.S)
     if sec:
@@ -91,6 +96,8 @@ def check_constraints(root: Path) -> list[str]:
             out.append(f"{cid}: warn 인데 promote_after 가 없다 — 언제 error 로 올릴지 적지 않으면 영원히 warn 이다")
         kind = (c.get("detect") or {}).get("type")
         violations, scanned = check_one(c, root, None)
+        if violations and str(c.get("severity", "error")).lower() == "error":
+            out.append(f"{cid}: 위반 {len(violations)}건 — 기준 구현이 자기 규칙을 어긴다 ({violations[0]['file']})")
         if scanned == 0 and not violations and kind != "forbidden_path":
             out.append(f"{cid}: 검사 대상이 0개다 — 경로(glob)가 실제 파일과 맞는지 기준 구현 뒤 확인")
     return out
@@ -111,9 +118,20 @@ def run() -> dict:
             if r is None:
                 problems.append(f"{rid}: 표에 없다")
                 continue
+            if r["cells"] != 3:
+                problems.append(f"{rid}: 칸이 {r['cells']}개다 — 칸 안의 | 는 \\| 로 적는다(열이 밀리면 상태를 못 읽는다)")
+                continue
             empty = [k for k in ("decision", "check", "status") if is_todo(r[k])]
             if empty:
                 problems.append(f"{rid}: TODO 가 남았다 — {'·'.join({'decision': '결정', 'check': '검사', 'status': '상태'}[k] for k in empty)}")
+        # 4.5 의 사람 확인 — 결정만 하고 기준 구현으로 보이지 않은 규칙은 첫 태스크가 다르게 쓴다
+        for rid in REQUIRED:
+            r = rows.get(rid)
+            if not r or r["cells"] != 3 or is_todo(r["status"]) or rid == "C-COMMIT":
+                continue
+            if r["status"].strip("` ") not in DONE_STATUS:
+                problems.append(f"{rid}: 상태가 '{r['status']}' — 기준 구현으로 확인하고 사람이 승인하면 '기준 구현 확인'"
+                                f"(해당 없는 항목은 '해당 없음')")
         tdb = rows.get("C-TESTDB")
         if tdb and "다름" in tdb["decision"]:
             if not re.search(r"ADR-\d+", tdb["decision"]) or not re.search(r"TASK-\d+", tdb["decision"]):
