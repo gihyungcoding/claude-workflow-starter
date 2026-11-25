@@ -16,6 +16,8 @@ check_mockup.py 가 확정 전 시안의 부품 파일이 키트와 같은지 �
 
     --check   복사하지 않고 다른 파일만 알린다 (exit 1 = 다름)
 
+screens.json 의 "surface"(도메인 표면 프리셋)가 있으면 kit/themes/<surface>.css 를 theme.css 로 옮긴다.
+
 출력: <시안 폴더>/kit.json — {"files": {"components.css": "<sha256 앞 12자>", …}}
 """
 
@@ -31,6 +33,24 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 KIT = HERE.parent / "kit"
 KIT_FILES = ("components.css", "desktop.css", "palette.js")
+SURFACES = ("card-stack", "flat-dense", "edge", "dark-media", "flat-banded", "chunky")   # kit/themes/<이름>.css
+
+
+def surface_of(out: Path) -> str:
+    """screens.json 의 "surface" — 도메인 표면 프리셋. 없으면 card-stack(키트 기본)."""
+    try:
+        return json.loads((out / "screens.json").read_text(encoding="utf-8")).get("surface") or "card-stack"
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return "card-stack"
+
+
+def kit_sources(out: Path, kit: Path = KIT) -> dict[str, Path]:
+    """시안 폴더의 파일 이름 → 키트 원본. theme.css 는 screens.json surface 의 프리셋."""
+    src = {n: kit / n for n in KIT_FILES}
+    surface = surface_of(out)
+    if surface in SURFACES:
+        src["theme.css"] = kit / "themes" / f"{surface}.css"
+    return src
 
 
 def digest(path: Path) -> str:
@@ -50,18 +70,18 @@ def mockup_status(out: Path) -> str | None:
 
 def differing(out: Path, kit: Path = KIT) -> list[str]:
     """시안 폴더에 있는 키트 파일 중 키트와 내용이 다른 것. 시안 폴더에 없는 파일은 세지 않는다."""
-    return [n for n in KIT_FILES
-            if (out / n).is_file() and (kit / n).is_file() and digest(out / n) != digest(kit / n)]
+    return [n for n, k in kit_sources(out, kit).items()
+            if (out / n).is_file() and k.is_file() and digest(out / n) != digest(k)]
 
 
 def sync(out: Path, kit: Path = KIT) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     files = {}
-    for n in KIT_FILES:
-        if (kit / n).is_file():
-            shutil.copyfile(kit / n, out / n)
-            files[n] = digest(kit / n)
-    record = {"files": files}
+    for n, k in kit_sources(out, kit).items():
+        if k.is_file():
+            shutil.copyfile(k, out / n)
+            files[n] = digest(k)
+    record = {"surface": surface_of(out), "files": files}
     (out / "kit.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return record
 

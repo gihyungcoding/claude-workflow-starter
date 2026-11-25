@@ -341,7 +341,8 @@ class KitSyncTest(MockupTestCase):
         out = self.project.run(SYNC, OUT)
         self.assertEqual(out.returncode, 0, out.stderr)
         rec = json.loads(self.project.path(f"{OUT}/kit.json").read_text())
-        self.assertEqual(set(rec["files"]), {"components.css", "desktop.css", "palette.js"})
+        self.assertEqual(set(rec["files"]), {"components.css", "desktop.css", "palette.js", "theme.css"})
+        self.assertEqual(rec["surface"], "card-stack")   # 표면을 정하지 않으면 키트 기본
         self.assertEqual(self.project.path(f"{OUT}/components.css").read_text(), (KIT / "components.css").read_text())
 
     def test_edited_copy_fails_check_while_draft(self):
@@ -461,3 +462,66 @@ class UiMapTest(MockupTestCase):
         parts = json.loads(self.project.path(self.MAP).read_text())["parts"]
         self.assertIn("picker", parts)
         self.assertIsNone(parts["picker"])
+
+
+THEMES = KIT / "themes"
+
+
+class SurfacePresetTest(MockupTestCase):
+    """도메인 표면 프리셋 — 정해진 변수만, 바탕에 브랜드색 금지 (시험: 즉석 테마로 교육 앱이 보라로 덮였다)"""
+
+    def setUp(self):
+        super().setUp()
+        self.screens["surface"] = "edge"
+        link = '<link rel="stylesheet" href="{up}theme.css">'
+        for rel in list(self.pages):
+            up = "../../" if "/desktop/" in rel else "../"
+            self.pages[rel] = self.pages[rel].replace("<body>", link.format(up=up) + "<body>", 1)
+        self.save()
+        self.project.run(SYNC, OUT)
+
+    def test_every_kit_preset_is_valid(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cm", STARTER / ".claude/skills/ui-mockup/scripts/check_mockup.py")
+        cm = importlib.util.module_from_spec(spec); spec.loader.exec_module(cm)
+        names = sorted(p.stem for p in THEMES.glob("*.css"))
+        self.assertEqual(names, sorted(["card-stack", "flat-dense", "edge", "dark-media", "flat-banded", "chunky"]))
+        for p in THEMES.glob("*.css"):
+            self.assertEqual(cm.theme_problems(p.read_text()), [], p.name)
+
+    def test_synced_preset_passes(self):
+        self.assertEqual(self.check()[0], 0, self.check()[1])
+        self.assertEqual(self.project.path(f"{OUT}/theme.css").read_text(), (THEMES / "edge.css").read_text())
+
+    def test_unknown_surface_fails(self):
+        self.screens["surface"] = "pastel"
+        self.assertFlags("surface 가 프리셋이 아니다")
+
+    def test_screen_without_theme_link_fails(self):
+        self.pages["screens/detail.html"] = page("<h1>상세</h1>")
+        self.assertFlags("theme.css 를 걸지 않았다")
+
+    def test_brand_on_background_fails_even_if_synced(self):
+        self.project.write(f"{OUT}/theme.css", ":root { --block-bg: var(--c-brand-tint); }")
+        self.assertFlags("브랜드 계열 색")
+
+    def test_theme_cannot_add_selectors(self):
+        self.project.write(f"{OUT}/theme.css", ":root { --page-bg: #fff; }\n.btn { color: red; }")
+        self.assertFlags(":root { 변수 } 하나만")
+
+    def test_dark_media_needs_dark_tokens(self):
+        self.screens["surface"] = "dark-media"
+        self.save()
+        self.project.run(SYNC, OUT)
+        self.project.write(f"{OUT}/tokens.css", ":root { --c-bg: #F1F2F6; }")
+        self.assertFlags("밝은 토큰")
+
+
+class DarkTokensTest(MockupTestCase):
+    def test_dark_mode_keeps_contrast(self):
+        out = self.project.run(f"{UM}/../kit/derive.py", "--brand", "#7B3FF2", "--tone", "cool", "--mode", "dark", "-o", "tokens-dark.css")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)   # 대비 기준 미달이면 exit 1
+        css = self.project.path("tokens-dark.css").read_text()
+        self.assertIn("--mode dark", css)
+        bg = re.search(r"--c-bg:\s*#([0-9A-F]{6})", css).group(1)
+        self.assertLess(int(bg[:2], 16), 0x30)   # 어두운 바탕

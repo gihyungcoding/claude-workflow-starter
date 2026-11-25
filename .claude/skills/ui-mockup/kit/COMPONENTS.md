@@ -8,7 +8,7 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=375, initial-scale=1">
 <title>화면 제목</title>
-<link id="tokens" rel="stylesheet" href="../tokens.css"><link rel="stylesheet" href="../components.css"><script src="../palette.js"></script>
+<link id="tokens" rel="stylesheet" href="../tokens.css"><link rel="stylesheet" href="../components.css"><link rel="stylesheet" href="../theme.css"><script src="../palette.js"></script>
 </head>
 <body class="…">   <!-- text-large(같이 짜지 않는 사람 화면) · has-tab(탭바) · has-cta(하단 고정 버튼) · plain(폼·상세: 흰 바탕 한 장) -->
 …

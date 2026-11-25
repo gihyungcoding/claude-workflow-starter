@@ -1,0 +1,7 @@
+/* edge — 흰 바탕, 카드 없이 사진을 화면 끝까지, 게시물 사이는 간격만
+   도메인: SNS·커뮤니티 · 근거: 인스타그램·스레드 (확인: 높음) */
+:root {
+  --page-bg: var(--c-surface); --page-fill: var(--c-bg); --bar-bg: var(--c-surface);
+  --block-bg: var(--c-surface); --block-mx: 0px; --block-radius: 0px; --page-gap: 16px;
+  --photo-radius: 0px; --photo-bleed: var(--block-pad);
+}

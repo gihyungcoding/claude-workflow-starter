@@ -1,0 +1,8 @@
+/* dark-media — 어두운 화면, 블록 없이 영상 썸네일이 돋보이게, 썸네일은 작게 둥글게
+   도메인: 인터넷 방송·영상 · 근거: 치지직(어두운 화면 기본 — 이용자 반응상 밝은 화면 전환을 함께 둔다) (확인: 중간) · SOOP(확인 필요)
+   토큰은 derive.py --mode dark 로 만든다 — 이 프리셋은 표면만 바꾼다 */
+:root {
+  --bar-bg: var(--c-bg);
+  --block-bg: transparent; --block-mx: 0px; --block-radius: 0px;
+  --photo-radius: 8px;
+}

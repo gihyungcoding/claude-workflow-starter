@@ -59,8 +59,26 @@ python3 UM/scripts/sync_kit.py "$OUT" && cp -R UM/assets "$OUT/assets"   # 부�
 | 정본이 비어 있다 (첫 UI 기능) | 브랜드 색 하나를 제품 성격에서 골라 생성. 이 토큰이 `design.md` §4·§5 초안이 된다 — BRIEF `scope.design_tokens: true` |
 
 ```bash
-python3 UM/kit/derive.py --brand "#RRGGBB" --tone warm|neutral|cool -o "$OUT/tokens.css"
+python3 UM/kit/derive.py --brand "#RRGGBB" --tone warm|neutral|cool [--mode dark] -o "$OUT/tokens.css"
 ```
+
+**표면 프리셋** — 도메인이 다르면 같은 골격이라도 표면 관례가 다르다(시험: 쇼핑·SNS·방송·배달·교육·여행 홈을 키트로 그렸더니
+브랜드 색만 다른 "회색 바탕 + 흰 블록" 일곱 장이 나왔다). 참조 서비스의 표면을 보고 `screens.json` 에 `"surface"` 를 정한다 —
+`kit/themes/<이름>.css` 의 머리말에 근거 서비스가 있다. 정하면 `sync_kit.py` 가 `theme.css` 로 옮기고, 모든 화면이
+`components.css` 다음 줄에 `theme.css` 를 건다.
+
+| surface | 도메인 | 표면 |
+|---|---|---|
+| `card-stack` (기본) | 금융·생활 유틸리티 | 회색 바탕 + 흰 둥근 블록 |
+| `flat-dense` | 쇼핑·패션 | 흰 바탕, 블록 없이 구역을 띠로, 각진 사진, 촘촘하게 |
+| `edge` | SNS·커뮤니티 | 흰 바탕, 카드 없이 사진을 화면 끝까지 |
+| `dark-media` | 방송·영상 | 어두운 화면 — 토큰을 `--mode dark` 로. 밝은 화면 전환도 둔다 |
+| `flat-banded` | 배달·장보기·여행 | 흰 바탕, 구역 사이 굵은 회색 띠, 둥근 사진 |
+| `chunky` | 학습·습관 | 흰 바탕, 누르는 것마다 아래 그림자가 있는 두툼한 버튼 |
+
+**프리셋을 지어내지 않는다.** 맞는 것이 없으면 가장 가까운 것을 쓰고 BRIEF 에 "표면 프리셋 추가 제안"으로 남긴다.
+테마 파일은 키트의 테마 고리 변수만 바꾸고 바탕·블록·막대에 브랜드 계열 색을 못 쓴다(정적 검사). 렌더링 측정은
+버튼 바탕이 놓인 바탕과 구분되는지, 브랜드색이 첫 화면을 30% 넘게 덮지 않는지 본다.
 
 ## 1. 여정 (`OUT/journey.md`)
 
