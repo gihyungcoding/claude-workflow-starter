@@ -50,7 +50,7 @@ HREF_RE = re.compile(r"""<a\b([^>]*)>""", re.I)
 ATTR_RE = lambda name: re.compile(rf"""\b{name}\s*=\s*["']([^"']*)["']""", re.I)
 SRC_RE = re.compile(r"""<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']""", re.I)
 EMOJI_RE = re.compile("[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F000-\U0001F2FF]")
-RANGE_STYLE_RE = re.compile(r"^\s*(--(?:from|to|x|y|w|h):\s*[\d.]+%;?\s*)+$")   # .range · .picker-mini-view 의 CSS 변수만
+RANGE_STYLE_RE = re.compile(r"^\s*(--(?:(?:from|to|x|y|w|h):\s*[\d.]+%|(?:cols|rows):\s*\d+);?\s*)+$")   # .range · .picker-mini 의 CSS 변수만
 BADGE_COLORS = ("is-brand", "is-warning", "is-info", "is-success", "is-danger")
 
 

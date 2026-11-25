@@ -133,7 +133,10 @@ beach · calendar · car · clipboard · coffee · eyes · grandpa · child · h
 ```html
 <div class="picker">
   <div class="picker-filter"><div class="seg" role="radiogroup"><button class="seg-item is-selected" role="radio" aria-checked="true">R석 99,000원</button><button class="seg-item" role="radio" aria-checked="false">S석 77,000원</button></div></div>
-  <div class="picker-mini" role="img" aria-label="구역 전체 중 A~E열 2~6번을 보는 중"><span class="picker-mini-view" style="--x:5%;--y:0%;--w:25%;--h:60%"></span><span class="picker-mini-label">A~H열 × 20</span></div>
+  <div class="picker-mini" role="img" aria-label="R석 구역 A~H열 × 20번 중 A~E열 2~6번을 보는 중, 고른 좌석 B4·B5">
+    <div class="picker-mini-map" style="--cols:20;--rows:8"><span class="picker-mini-view" style="--x:5%;--y:0%;--w:25%;--h:62.5%"></span><span class="picker-mini-pick" style="--x:15%;--y:12.5%"></span><span class="picker-mini-pick" style="--x:20%;--y:12.5%"></span></div>
+    <p class="picker-mini-label"><strong>R석 · 무대 왼쪽 앞</strong><span>A~E열 2~6번 보는 중</span></p>
+  </div>
   <div class="picker-stage">무대</div>
   <div class="picker-viewport"><div class="picker-grid">
     <div class="picker-row"><span class="picker-row-label">A</span><button class="seat" aria-label="R-A2">2</button><span class="seat is-off" role="img" aria-label="R-A3 고를 수 없음"></span><button class="seat is-picked" aria-pressed="true" aria-label="R-A4 고름">4</button></div>
@@ -144,4 +147,6 @@ beach · calendar · car · clipboard · coffee · eyes · grandpa · child · h
 - **등급·구역 선택(`picker-filter`)은 언제나 배치도 바로 위** — 모바일·데스크톱 모두. 페이지 머리나 옆에 두지 않는다
 - 칸은 44px(모바일 터치). 많으면 `picker-viewport` 가 가로로 스크롤되고, 구역 전체 모습은 `picker is-overview`(누를 수 없는 분포)
 - 고를 수 없는 칸은 번호를 지우고 `aria-label` 로만(대비 기준을 지키는 방법)
-- 인라인 style 예외 둘째: `.picker-mini-view` 의 `--x --y --w --h` 만
+- **미니맵은 구역 모양·보는 범위·고른 칸·무대 방향을 함께 보인다** — 빈 상자에 틀만 두면 어디인지 모른다. 글자로 "R석 · 무대 왼쪽 앞" 처럼 위치를 한 번 더 말한다. 배치도 전체가 한 화면에 들어오면(데스크톱에서 스크롤 없음) 미니맵을 빼도 된다
+- 미니맵 좌표: 칸 하나의 너비 = 100%/cols. n번째 열(0부터)은 `--x: n×100/cols %`, k번째 행은 `--y: k×100/rows %`
+- 인라인 style 예외 둘째: `.picker-mini-map` 의 `--cols --rows`, `.picker-mini-view`·`.picker-mini-pick` 의 `--x --y --w --h` 만

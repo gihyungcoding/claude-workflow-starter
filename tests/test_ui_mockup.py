@@ -125,9 +125,14 @@ class CheckMockupTest(MockupTestCase):
         self.assertTrue(any("<style>" in w and w.startswith("screens/detail.html") for w in out["warnings"]))
 
     def test_minimap_css_variables_are_allowed_inline(self):
-        self.pages["screens/detail.html"] = page('<h1>a</h1><span class="picker-mini-view" style="--x:5%;--y:0%;--w:25%;--h:60%"></span>')
+        self.pages["screens/detail.html"] = page('<h1>a</h1><div class="picker-mini-map" style="--cols:20;--rows:8"><span class="picker-mini-view" style="--x:5%;--y:0%;--w:25%;--h:60%"></span></div>')
         self.save()
         self.assertEqual(self.check()[0], 0)
+
+    def test_minimap_counts_must_be_whole_numbers(self):
+        self.pages["screens/detail.html"] = page('<h1>a</h1><div class="picker-mini-map" style="--cols:20;color:red"></div>')
+        self.save()
+        self.assertEqual(self.check()[0], 1)
 
     def test_desktop_is_optional(self):
         del self.screens["desktop"]
