@@ -273,3 +273,49 @@ class LogQuestionHookTest(ProjectTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DataBundleTest(MockupTestCase):
+    """같은 데이터 묶음은 같은 너비의 화면끼리 같은 순서·같은 부품 (시험 실행: 금액이 화면마다 다른 부품)"""
+
+    LAYOUT = "# 배치\n\n## 데이터 묶음\n\n| 묶음 | 항목(순서) | 모바일 | 데스크톱 |\n|---|---|---|---|\n| `payment` | amount, deadline, account | 금액 크게 | 카드 |\n"
+    PAY = ('<section class="block" data-bundle="payment"><p class="pay-amount" data-item="amount">297,000원</p>'
+           '<span class="countdown" data-item="deadline">11:59까지</span><div class="row" data-item="account">계좌</div></section>')
+
+    def setUp(self):
+        super().setUp()
+        self.project.write(f"{OUT}/layout.md", self.LAYOUT)
+
+    def test_same_bundle_same_parts_passes(self):
+        self.pages["screens/home.html"] = page("<h1>홈</h1>" + self.PAY)
+        self.pages["screens/detail.html"] = page("<h1>상세</h1>" + self.PAY)
+        self.save()
+        self.assertEqual(self.check()[0], 0)
+
+    def test_item_with_different_part_fails(self):
+        self.pages["screens/home.html"] = page("<h1>홈</h1>" + self.PAY)
+        self.pages["screens/detail.html"] = page("<h1>상세</h1>" + self.PAY.replace('class="pay-amount"', 'class="row-title"'))
+        self.assertFlags("payment.amount 의 부품이")
+
+    def test_order_differs_from_table_fails(self):
+        swapped = ('<section data-bundle="payment"><span class="countdown" data-item="deadline">x</span>'
+                   '<p class="pay-amount" data-item="amount">y</p></section>')
+        self.pages["screens/detail.html"] = page("<h1>상세</h1>" + swapped)
+        self.assertFlags("항목 순서가 표와 다르다")
+
+    def test_undeclared_bundle_fails(self):
+        self.pages["screens/detail.html"] = page('<h1>상세</h1><div data-bundle="ticket"><p data-item="seat">A1</p></div>')
+        self.assertFlags("표에 없는 묶음")
+
+    def test_mobile_and_desktop_may_differ(self):
+        self.pages["screens/home.html"] = page("<h1>홈</h1>" + self.PAY)
+        self.pages["screens/desktop/d-home.html"] = page("<h1>홈</h1>" + self.PAY.replace('class="pay-amount"', 'class="stat-num"'), up="../../")
+        self.save()
+        self.assertEqual(self.check()[0], 0)
+
+    def test_missing_item_is_allowed_but_order_kept(self):
+        self.pages["screens/home.html"] = page("<h1>홈</h1>" + self.PAY)
+        no_account = self.PAY.replace('<div class="row" data-item="account">계좌</div>', "")
+        self.pages["screens/detail.html"] = page("<h1>상세</h1>" + no_account)
+        self.save()
+        self.assertEqual(self.check()[0], 0)

@@ -593,7 +593,7 @@ function showTab(name) {
 $$('.tab').forEach(function (b) { b.addEventListener('click', function () { showTab(b.dataset.tab); }); });
 
 /* ---------- 팔레트: #tokens 교체 + 모든 iframe 에 postMessage + localStorage ---------- */
-var KEY = 'hd-palette', cur = null;
+var KEY = 'hd-palette:' + location.pathname.replace(/\/[^/]*\.html?$/, ''), cur = null;   // palette.js 와 같은 키 — 시안 폴더마다 따로
 function sendTo(f) { if (!cur) return; try { f.contentWindow.postMessage({type: 'hd-palette', slug: cur}, '*'); } catch (e) {} }
 function setPalette(slug) {
   cur = slug;
