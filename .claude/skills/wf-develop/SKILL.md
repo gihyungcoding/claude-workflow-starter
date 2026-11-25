@@ -80,8 +80,18 @@ cat workflow_design/04_plan/PLAN_TASK-001.json         # 어디를 고치는가,
 - `reusable` 에 있는 것을 실제로 쓴다. 쓰지 않기로 했다면 이유를 기록한다
 - 한 번에 하나의 테스트를 통과시킨다 — 6개를 동시에 고치면 무엇이 무엇을 고쳤는지 모른다
 
-주변 코드의 관례를 따른다: 네이밍, 에러 처리 방식, 로깅, 주석 밀도.
-**이 저장소에서 자연스러워 보이는 코드**를 쓴다.
+관례(배치·네이밍·에러 처리·검증·로깅·테스트)는 **이 순서로** 찾는다.
+
+1. `docs/architecture/conventions.md` 의 규칙 표
+2. 그 파일 `## 기준 파일` 의 기준 구현 — 본뜬다
+3. 주변 코드
+
+앞의 것이 정한 것은 뒤의 것과 달라도 앞을 따른다. 주변 코드는 누가 검토한 관례가 아닐 수 있다
+(→ 실사용: 첫 태스크가 우연히 쓴 DTO 위치·테스트 이름·검증 방식이 관례로 굳어 재작업).
+
+**셋 다 없는 관례를 이 태스크가 처음 정하면** `DEV_<ID>.json` 의 `new_conventions` 에 적는다
+(Step 6). 다음 태스크가 이 코드를 "주변 코드"로 따르게 되므로, 사람이 Phase 4 에서 보고
+회고에서 conventions.md 에 올릴지 정한다. 이 Phase 에서 conventions.md 를 직접 고치지 않는다.
 
 ### Step 3 — Green 확인
 
@@ -248,6 +258,11 @@ Phase 4 가 한다.
       "why": "API 계층에 쿼리 로직이 있었음" }
   ],
   "scope_deviations": [],
+  "new_conventions": [                 // Step 2 — conventions.md·기준 파일·주변 코드에 없던 관례
+    { "item": "C-ERROR",               // conventions.md 의 항목 id, 없으면 새 이름
+      "decision": "도메인 예외는 <Domain>Exception 하나에 코드 enum 으로 구분",
+      "files": ["src/domain/store_errors.py"] }
+  ],
   "pre_review": {                      // Step 5.5 — 자체 리뷰
     "rounds": [
       { "n": 1, "scope": "전체 develop...HEAD", "findings": 1,
@@ -265,6 +280,9 @@ Phase 4 가 한다.
 
 `scope_deviations` — Plan에 없던 파일을 고쳤다면 여기에 이유와 함께 적는다.
 비어 있는 것이 정상이고, 항목이 있으면 Phase 4가 그것을 검토한다.
+
+`new_conventions` — 이 태스크가 처음 정한 관례. 없으면 빈 배열이다. Phase 4 가 HITL#3 요약에
+보여 주고, Phase 5 가 `rule_proposals` 로 옮긴다 (target `docs/architecture/conventions.md`).
 
 `CP-3.4_context-dev.md` 를 마무리 갱신하고(`next_steps` 를 Phase 4 로), `activeContext.md` 갱신, 커밋.
 소스는 Step 5.5 에서 이미 커밋했으므로 여기서는 산출물만 커밋한다.
