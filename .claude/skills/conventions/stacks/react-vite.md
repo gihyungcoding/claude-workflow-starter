@@ -34,16 +34,30 @@ rules: { 'no-console': ['error', { allow: ['error'] }] }
 | `엄격` | 지표를 `error` 로. 서버 호출은 `src/api/` 의 함수만, 화면은 그 함수를 props·훅으로 받는다(테스트에서 바꿔 끼울 수 있게) |
 
 ```js
-// .dependency-cruiser.cjs — 폴더 방향과 순환
-module.exports = { forbidden: [
-  { name: 'no-circular', severity: 'error', from: {}, to: { circular: true } },
-  { name: 'ui-knows-no-pages', severity: 'error', from: { path: '^src/components/ui' }, to: { path: '^src/(pages|api)' } },
-  { name: 'components-know-no-pages', severity: 'error', from: { path: '^src/components' }, to: { path: '^src/pages' } },
-] };
+// .dependency-cruiser.cjs — 폴더 방향과 순환 (dependency-cruiser 18, 실제 실행으로 확인)
+module.exports = {
+  forbidden: [
+    { name: 'no-circular', severity: 'error', from: {}, to: { circular: true } },
+    { name: 'ui-knows-no-pages-or-api', severity: 'error', from: { path: '^src/components/ui/' }, to: { path: '^src/(pages|api)/' } },
+    { name: 'components-know-no-pages', severity: 'error', from: { path: '^src/components/' }, to: { path: '^src/pages/' } },
+    // 해석 못 한 import 는 어떤 규칙에도 걸리지 않고 조용히 빠진다 — 오타·별칭 미설정을 여기서 잡는다. '/vite.svg' 같은 public 경로는 뺀다
+    { name: 'no-unresolvable', severity: 'error', from: {}, to: { couldNotResolve: true, pathNot: '^/' } },
+  ],
+  options: {
+    doNotFollow: { path: 'node_modules' },
+    tsPreCompilationDeps: true,                       // 없으면 `import type` 은 검사하지 않는다
+    tsConfig: { fileName: 'tsconfig.app.json' },      // 없으면 `@/…` 별칭을 해석하지 못해 위반이 통과한다(파일이 없으면 exit 1)
+  },
+};
 ```
 
+경로 정규식은 **끝에 `/`** 까지 — `'^src/components/ui'` 는 `src/components/uiKit` 에도 걸린다. `depcruise src` 는 설정 파일을 자동으로 읽고,
+위반 개수를 종료 코드로 낸다(0 이 아니면 실패).
+ESLint 지표 줄은 flat config 의 한 항목에 넣는다 — `tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, { files: ['**/*.{ts,tsx}'], rules: { …아래… } })`.
+`warn` 이면 종료 코드 0, `error` 면 1(실제 실행).
+
 ```js
-// eslint.config.js — 지표 (신호만: 'warn', 엄격: 'error')
+// eslint.config.js 의 rules — 지표 (신호만: 'warn', 엄격: 'error')
 rules: { complexity: ['warn', 10], 'max-params': ['warn', 4], 'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }] }
 ```
 
