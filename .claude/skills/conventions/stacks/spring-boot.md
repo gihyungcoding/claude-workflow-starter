@@ -69,12 +69,21 @@ dependencies {
 
 ```java
 // src/test/java/<base>/ArchitectureTest.java — testImplementation 'com.tngtech.archunit:archunit-junit5:<최신>'
+// (ArchUnit 1.5·JUnit 5·Gradle 8 로 실제 실행 확인. 처음 판은 import 가 없어 컴파일되지 않았다)
+import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+
 @AnalyzeClasses(packages = "<base>")
 class ArchitectureTest {
   @ArchTest static final ArchRule layers = layeredArchitecture().consideringOnlyDependenciesInLayers()
       .layer("Api").definedBy("..api..")
       .layer("Service").definedBy("..service..")
       .layer("Repository").definedBy("..repository..")
+      .layer("Domain").definedBy("..domain..")     // 층으로 정의하지 않으면 domain → api 같은 역방향을 순환 규칙으로만 잡는다
       .whereLayer("Api").mayNotBeAccessedByAnyLayer()
       .whereLayer("Service").mayOnlyBeAccessedByLayers("Api")
       .whereLayer("Repository").mayOnlyBeAccessedByLayers("Service");
@@ -83,7 +92,8 @@ class ArchitectureTest {
 ```
 
 ```groovy
-// build.gradle — PMD 설계 지표만 (규칙 속성 이름은 설치한 PMD 버전 문서로 확인)
+// build.gradle — ArchUnit 을 돌리려면 JUnit Platform 도: testRuntimeOnly 'org.junit.platform:junit-platform-launcher' · test { useJUnitPlatform() }
+// PMD 설계 지표만 (PMD 7.29 로 실제 실행 확인 — 아래 속성 이름 모두 유효)
 plugins { id 'pmd' }
 pmd { toolVersion = '<최신>'; ruleSets = []; ruleSetFiles = files('config/pmd/design.xml'); ignoreFailures = true /* 엄격: false */ }
 ```
@@ -91,6 +101,7 @@ pmd { toolVersion = '<최신>'; ruleSets = []; ruleSetFiles = files('config/pmd/
 ```xml
 <!-- config/pmd/design.xml -->
 <ruleset name="design" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0">
+  <description>C-DESIGN 설계 지표</description>   <!-- 없으면 "description is missing" 경고(이후 버전 필수) -->
   <rule ref="category/java/design.xml/GodClass"/>
   <rule ref="category/java/design.xml/CyclomaticComplexity"><properties><property name="methodReportLevel" value="10"/></properties></rule>
   <rule ref="category/java/design.xml/TooManyMethods"><properties><property name="maxmethods" value="15"/></properties></rule>
@@ -100,6 +111,13 @@ pmd { toolVersion = '<최신>'; ruleSets = []; ruleSetFiles = files('config/pmd/
 ```
 
 엄격에서도 포트는 **경계(저장소·외부 호출)에만** — JPA 저장소 인터페이스가 이미 포트 역할을 하면 그 위에 하나 더 만들지 않는다.
+
+**실제 실행에서 확인한 것**: 위 → 아래 역방향(repository·domain → api·service), 패키지 순환을 잡았고, `config` 가 서비스·저장소를 조립하는 것은
+`consideringOnlyDependenciesInLayers` 덕분에 허용됐다(`consideringAllDependencies` 로 바꾸면 조립 코드가 위반 4건이 된다).
+PMD 는 메서드 수·복잡도·매개변수 7개(`minimum=7` 은 7개부터)·결합 20 초과를 보고했다. `GodClass` 는 크기만으로는 걸리지 않고
+다른 클래스 데이터를 많이 쓰고 응집이 낮을 때 걸린다(WMC·ATFD·TCC). `ignoreFailures = true` 면 빌드는 통과하고 보고서
+`build/reports/pmd/main.html` 이 남으며 콘솔에 건수가 나온다(`-q` 면 숨는다), `false` 면 실패(exit 1).
+PMD 가 매번 내는 `auxClasspath … wrong java version` 경고는 무해하다 — `PMD_JAVA_DISABLE_AUX_CLASSPATH_WARNINGS=true` 로 끈다.
 
 ## 기준 구현 (wf-init 4.5)
 - 엔드포인트 하나(예: `GET /api/health` 가 아니라 **입력이 있는** 작은 것 — `POST /api/echo` 처럼 검증 규칙 하나)
