@@ -25,6 +25,28 @@
 rules: { 'no-console': ['error', { allow: ['error'] }] }
 ```
 
+## 설계 원칙 (C-DESIGN)
+
+| 단계 | React 에서 |
+|---|---|
+| `끄기` | 위 정규식 제약만 |
+| `신호만` (추천) | **dependency-cruiser** 로 폴더 방향·순환(`depcruise src` 를 린트 명령에 — 실패한다). 지표는 ESLint `warn` 으로(아래) — `npm run lint` 가 실패하지 않고 경고를 남긴다 |
+| `엄격` | 지표를 `error` 로. 서버 호출은 `src/api/` 의 함수만, 화면은 그 함수를 props·훅으로 받는다(테스트에서 바꿔 끼울 수 있게) |
+
+```js
+// .dependency-cruiser.cjs — 폴더 방향과 순환
+module.exports = { forbidden: [
+  { name: 'no-circular', severity: 'error', from: {}, to: { circular: true } },
+  { name: 'ui-knows-no-pages', severity: 'error', from: { path: '^src/components/ui' }, to: { path: '^src/(pages|api)' } },
+  { name: 'components-know-no-pages', severity: 'error', from: { path: '^src/components' }, to: { path: '^src/pages' } },
+] };
+```
+
+```js
+// eslint.config.js — 지표 (신호만: 'warn', 엄격: 'error')
+rules: { complexity: ['warn', 10], 'max-params': ['warn', 4], 'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }] }
+```
+
 ## 기준 구현 (wf-init 4.5)
 - `src/api/` 함수 하나(백엔드 기준 엔드포인트 호출) + `ApiError` 변환
 - 페이지 하나: 폼 하나(입력 1칸, zod), 서버 검증 오류를 같은 칸에 표시, 성공 결과 표시 — **토큰만 써서**

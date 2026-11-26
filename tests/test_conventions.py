@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import unittest
+from pathlib import Path
+
 from helpers import ProjectTestCase
 from test_check_architecture import HEADER, constraint
 
@@ -22,6 +25,7 @@ ROWS = {
     "C-TEST": "<Class>Test, 대상 패키지",
     "C-LOG": "SLF4J",
     "C-FE": "해당 없음 — 백엔드만",
+    "C-DESIGN": "신호만 — import-linter 계층 + ruff 지표 경고",
     "C-COMMIT": "CLAUDE.md 「커밋」 절",
 }
 
@@ -152,3 +156,27 @@ class ConventionsGateTest(ProjectTestCase):
         self.assertBlocks("C-LINT: 정했는데 린트 설정 파일이 없다")
         self.project.write("pyproject.toml", "[tool.ruff]\nline-length = 100\n")
         self.assertEqual(self.gate()[0], 0)
+
+    def test_design_level_must_be_one_of_three(self):
+        # 설계 원칙은 채팅 지시가 아니라 문서의 세 단계 중 하나로 — 다음 세션·리뷰어가 읽는다
+        self.project.write(CONV, conventions({**ROWS, "C-DESIGN": "SOLID 잘 지키기"}))
+        self.assertBlocks("C-DESIGN: 결정은 '끄기'·'신호만'·'엄격'")
+        rows = dict(ROWS)
+        del rows["C-DESIGN"]
+        self.project.write(CONV, conventions(rows))
+        self.assertBlocks("C-DESIGN: 표에 없다")
+
+
+class DesignPresetTest(unittest.TestCase):
+    """C-DESIGN 단계마다 스택이 쓸 도구가 있어야 한다 — 없으면 '신호만'·'엄격' 을 골라도 할 일이 없다"""
+
+    def test_each_stack_has_design_tiers_and_tools(self):
+        root = Path(__file__).resolve().parent.parent / ".claude/skills/conventions/stacks"
+        tools = {"spring-boot.md": "ArchUnit", "fastapi.md": "import-linter", "react-vite.md": "dependency-cruiser"}
+        for name, tool in tools.items():
+            text = (root / name).read_text()
+            with self.subTest(stack=name):
+                self.assertIn("## 설계 원칙 (C-DESIGN)", text)
+                for level in ("`끄기`", "`신호만`", "`엄격`"):
+                    self.assertIn(level, text)
+                self.assertIn(tool, text)

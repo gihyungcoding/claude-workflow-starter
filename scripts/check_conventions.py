@@ -13,6 +13,7 @@ r"""코딩 규칙 게이트 — 첫 태스크를 시작하기 전에 규칙이 �
 -----------
 - docs/architecture/conventions.md 가 있다 · 필수 항목(C-…)이 모두 있고 결정·검사·상태가 TODO 가 아니다
 - C-TESTDB 결정이 `같음` 또는 `다름` 으로 시작한다. `다름` 이면 실재하는 ADR 과 전환할 태스크(TASK-…)가 결정 칸에 있다
+- C-DESIGN 결정이 `끄기`·`신호만`·`엄격` 중 하나로 시작한다
 - C-LINT 를 정했으면 린트 설정 파일이 실제로 있다(eslint·oxlint·biome·ruff·mypy·checkstyle·prettier, pyproject 의 [tool.ruff], gradle 의 spotless)
 - 상태가 모두 '기준 구현 확인'(해당 없으면 '해당 없음', C-COMMIT 제외) — 4.5 의 사람 확인
 - 표의 칸이 정확히 4개다(칸 안의 | 는 \| 로)
@@ -49,7 +50,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _utils import decisions_dir, docs_root, load_constraints, repo_root  # noqa: E402
 from check_architecture import check_one, task_statuses  # noqa: E402
 
-REQUIRED = ("C-TESTDB", "C-LINT", "C-LAYOUT", "C-ERROR", "C-VALID", "C-DATA", "C-TEST", "C-LOG", "C-FE", "C-COMMIT")
+REQUIRED = ("C-TESTDB", "C-LINT", "C-LAYOUT", "C-ERROR", "C-VALID", "C-DATA", "C-TEST", "C-LOG", "C-FE", "C-DESIGN", "C-COMMIT")
+DESIGN_LEVELS = ("끄기", "신호만", "엄격")
 ROW_RE = re.compile(r"^\|\s*(C-[A-Z0-9-]+)\s*\|(.*)\|\s*$")
 CELL_SPLIT = re.compile(r"(?<!\\)\|")          # 칸 안의 | 는 \| 로 적는다 (정규식 a|b)
 DONE_STATUS = ("기준 구현 확인", "해당 없음")      # 4.5 사람 확인을 거친 상태
@@ -191,6 +193,9 @@ def run() -> dict:
                                     "'나중에 전환'만 적으면 전환하지 않는다")
                 elif not adr_exists(adr.group(0)):
                     problems.append(f"C-TESTDB: {adr.group(0)} 가 docs/decisions 에 없다")
+        design = rows.get("C-DESIGN")
+        if design and not is_todo(design["decision"]) and not design["decision"].strip("` ").startswith(DESIGN_LEVELS):
+            problems.append("C-DESIGN: 결정은 '끄기'·'신호만'·'엄격' 중 하나로 시작한다 — 채팅 지시는 다음 세션이 보지 못한다")
         lint = rows.get("C-LINT")
         if lint and not is_todo(lint["decision"]) and not lint["decision"].startswith("해당 없음") \
                 and not has_lint_config(root):

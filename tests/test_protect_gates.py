@@ -89,7 +89,7 @@ class ProtectGatesTest(ProjectTestCase):
             "frontend/tsconfig.json", "frontend/tsconfig.app.json", "ruff.toml", ".ruff.toml",
             "mypy.ini", ".mypy.ini", "config/checkstyle-main.xml", ".pre-commit-config.yaml",
             "frontend/.oxlintrc.json", ".oxlintrc", "frontend/.stylelintrc.json", ".stylelintrc",
-            ".editorconfig",
+            ".editorconfig", ".dependency-cruiser.cjs", "frontend/.dependency-cruiser.js", ".importlinter",
         ):
             with self.subTest(rel=rel):
                 self.project.write(rel, "x\n")

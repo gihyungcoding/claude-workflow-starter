@@ -59,6 +59,48 @@ dependencies {
     severity: error
 ```
 
+## 설계 원칙 (C-DESIGN)
+
+| 단계 | Spring Boot 에서 |
+|---|---|
+| `끄기` | 위 정규식 제약만 |
+| `신호만` (추천) | **ArchUnit** 테스트로 계층·순환(테스트라 실패한다). 지표는 PMD 를 `ignoreFailures = true` 로 — 보고서(`build/reports/pmd/`)를 리뷰가 본다. 명령 `./gradlew pmdMain` 을 C-DESIGN 검사 칸에 |
+| `엄격` | PMD `ignoreFailures = false`. 서비스는 저장소 인터페이스(포트)만 의존하고 구현은 Spring 이 주입(ArchUnit 규칙 추가). 포트마다 추상 계약 테스트 클래스 하나를 가짜·실제 구현이 상속 |
+
+```java
+// src/test/java/<base>/ArchitectureTest.java — testImplementation 'com.tngtech.archunit:archunit-junit5:<최신>'
+@AnalyzeClasses(packages = "<base>")
+class ArchitectureTest {
+  @ArchTest static final ArchRule layers = layeredArchitecture().consideringOnlyDependenciesInLayers()
+      .layer("Api").definedBy("..api..")
+      .layer("Service").definedBy("..service..")
+      .layer("Repository").definedBy("..repository..")
+      .whereLayer("Api").mayNotBeAccessedByAnyLayer()
+      .whereLayer("Service").mayOnlyBeAccessedByLayers("Api")
+      .whereLayer("Repository").mayOnlyBeAccessedByLayers("Service");
+  @ArchTest static final ArchRule noCycles = slices().matching("<base>.(*)..").should().beFreeOfCycles();
+}
+```
+
+```groovy
+// build.gradle — PMD 설계 지표만 (규칙 속성 이름은 설치한 PMD 버전 문서로 확인)
+plugins { id 'pmd' }
+pmd { toolVersion = '<최신>'; ruleSets = []; ruleSetFiles = files('config/pmd/design.xml'); ignoreFailures = true /* 엄격: false */ }
+```
+
+```xml
+<!-- config/pmd/design.xml -->
+<ruleset name="design" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0">
+  <rule ref="category/java/design.xml/GodClass"/>
+  <rule ref="category/java/design.xml/CyclomaticComplexity"><properties><property name="methodReportLevel" value="10"/></properties></rule>
+  <rule ref="category/java/design.xml/TooManyMethods"><properties><property name="maxmethods" value="15"/></properties></rule>
+  <rule ref="category/java/design.xml/ExcessiveParameterList"><properties><property name="minimum" value="7"/></properties></rule>
+  <rule ref="category/java/design.xml/CouplingBetweenObjects"><properties><property name="threshold" value="20"/></properties></rule>
+</ruleset>
+```
+
+엄격에서도 포트는 **경계(저장소·외부 호출)에만** — JPA 저장소 인터페이스가 이미 포트 역할을 하면 그 위에 하나 더 만들지 않는다.
+
 ## 기준 구현 (wf-init 4.5)
 - 엔드포인트 하나(예: `GET /api/health` 가 아니라 **입력이 있는** 작은 것 — `POST /api/echo` 처럼 검증 규칙 하나)
 - 요청 DTO + `@Valid` → 검증 실패가 `C-ERROR` 형식 400 으로

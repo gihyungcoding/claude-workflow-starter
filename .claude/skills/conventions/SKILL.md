@@ -47,6 +47,8 @@ description: >-
 1. `CLAUDE.md` 스택 줄과 `architecture.md` 를 읽고 스택 파일을 고른다(Spring Boot·React(Vite)·FastAPI). 없는 스택은 `references/items.md` 의 질문만
 2. `templates/conventions.md` 를 `docs/architecture/conventions.md` 로 복사
 3. 항목마다 분류 → 묻거나 추천값으로 정함 → 표의 결정·검사·상태(`정함`) + 결정 메모. 되돌리기 어려운 것(테스트 DB·검증 방식)은 `/wf-adr`
+   **`C-DESIGN` 은 언제나 묻는다**(`AskUserQuestion` — 끄기 / 신호만(추천) / 엄격, 선택지 설명은 `references/items.md`). 사용자가 이 프로젝트만의
+   설계 방향(예: "헥사고날로")을 말하면 결정 메모에 그대로 적는다 — 채팅에만 남은 지시는 다음 세션·리뷰어가 보지 못한다
 4. 검사 칸의 제약을 `constraints.yaml` 에 — `architecture-doc` 스킬의 "갱신할 때" 절차(일부러 어겨 걸리는지 확인)는 기준 구현 뒤에
 5. 린트 명령은 **4.5 골격에서** `CLAUDE.md` 에 적는다(`uv`·`gradlew` 같은 실행 파일은 골격 뒤에 생긴다). 2.7 에서는 무엇을 쓸지만 정한다
 

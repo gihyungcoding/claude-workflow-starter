@@ -13,7 +13,8 @@
     constraints   docs/architecture/constraints.yaml
     conventions   docs/architecture/conventions.md (코딩 규칙 정본)
     gate-config   린트·타입·포맷 설정 (eslint, oxlint, stylelint, tsconfig, prettier, biome,
-                  ruff, mypy, checkstyle, .editorconfig, .pre-commit-config.yaml)
+                  ruff, mypy, checkstyle, .editorconfig, dependency-cruiser, importlinter,
+                  .pre-commit-config.yaml)
     approved-test 통합 HITL(#1·2)에서 승인된 Red 테스트 (TEST_<ID>.json 의 test_files)
 
 언제 묻나 — Phase 3·4 의 ACTIVE 태스크가 있을 때만
@@ -73,6 +74,8 @@ GATE_CONFIG_PATTERNS = (
     ".oxlintrc*",
     ".stylelintrc*",
     ".editorconfig",
+    ".dependency-cruiser.*",        # C-DESIGN — 폴더 방향·순환 (React)
+    ".importlinter",                # C-DESIGN — 계층 계약 (Python, pyproject 밖에 둘 때)
     ".prettierrc",
     ".prettierrc.*",
     "prettier.config.*",

@@ -82,6 +82,42 @@ fileConfig(config.config_file_name, disable_existing_loggers=False)          # �
       pattern: "(?i)(def\\s+test_\\w*task[_-]?\\d|class\\s+test\\w*task[_-]?\\d)"
 ```
 
+## 설계 원칙 (C-DESIGN)
+
+| 단계 | FastAPI 에서 |
+|---|---|
+| `끄기` | 위 정규식 제약만 |
+| `신호만` (추천) | **import-linter** 로 계층(`lint-imports` 를 린트 명령에 더한다 — 실패한다). 지표는 실패시키지 않는 별도 명령: `ruff check --select C901,PLR0904,PLR0913,PLR0917 --exit-zero .` 를 C-DESIGN 검사 칸에 적고 리뷰가 출력을 본다 |
+| `엄격` | 지표 규칙을 `[tool.ruff.lint] select` 에 넣어 실패로. 서비스는 `app/ports.py` 의 `Protocol` 만 의존, 구현은 `app/deps.py` 에서 주입(아래 `forbidden` 계약). 포트마다 계약 테스트 하나를 가짜·실제 구현 둘 다에 돌린다(`tests/contracts/`) |
+
+```toml
+# pyproject.toml — import-linter (AST 로 읽어 별칭 import·순환도 잡는다)
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "계층 — 위는 아래를 써도 되고 아래는 위를 모른다"
+type = "layers"
+layers = ["app.api", "app.services", "app.repositories", "app.ports", "app.models"]
+
+# 엄격일 때만 — 서비스는 저장소 구현을 모른다(포트만)
+[[tool.importlinter.contracts]]
+name = "서비스는 포트만 의존"
+type = "forbidden"
+source_modules = ["app.services"]
+forbidden_modules = ["app.repositories", "app.deps"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10           # 신호만: --exit-zero 로 보기만, 엄격: select 에 C901
+[tool.ruff.lint.pylint]
+max-public-methods = 15       # PLR0904
+max-args = 6                  # PLR0913
+max-positional-args = 4       # PLR0917
+```
+
+`app/ports.py` 는 서비스와 저장소 둘 다 아래에 있어야 둘이 import 할 수 있다 — 그래서 계층 순서에서 `app.repositories` 아래, `app.models` 위.
+엄격에서도 포트는 **경계(저장소·외부 호출)에만** — 구현이 하나뿐인 내부 클래스에 Protocol 을 만들지 않는다.
+
 ## 기준 구현 (wf-init 4.5)
 - `app/main.py` + 라우터 하나(입력이 있는 작은 엔드포인트), pydantic 요청·응답 스키마
 - 검증 실패 → 422 `VALIDATION_FAILED`(정한 본문), 도메인 규칙 실패 → `AppError` 하위 클래스 하나(예: 409 `ALREADY_EXISTS`)
