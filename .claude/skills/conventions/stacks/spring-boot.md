@@ -5,11 +5,11 @@
 
 | id | 추천 | 검사 |
 |---|---|---|
-| C-TESTDB | 운영과 같은 DB 를 Testcontainers 로(Spring Boot `@ServiceConnection`). 공용 베이스 클래스 하나 | 게이트 |
+| C-TESTDB | `같음` — 운영과 같은 DB 를 Testcontainers 로(Spring Boot `@ServiceConnection`). 공용 베이스 클래스 하나 | 게이트 |
 | C-LINT | Spotless + google-java-format, `removeUnusedImports()`. `./gradlew spotlessCheck` 를 린트 명령으로 | `spotlessCheck` |
 | C-LAYOUT | `api/`(컨트롤러·요청 DTO `api/dto`) → `service/`(서비스·**응답 DTO `service/dto`**) → `repository/` → `domain/`. 설정은 `config/` | 제약: `service`·`repository`·`domain` 은 `api` 를 import 하지 않는다 / `domain` 은 `service` 를 import 하지 않는다 |
 | C-ERROR | `{code, message, details?}` record 하나(`api/dto/ErrorResponse` 가 아니라 **`common/error/`** — 보안 설정·필터도 쓰므로). 도메인 예외는 기반 `AppException(code, status)` 하나와 하위 클래스. 예외 → 응답 변환은 `@RestControllerAdvice` 하나. **code 는 `UPPER_SNAKE`**, 검증 실패는 400 `VALIDATION_FAILED` + `details` 에 칸별 오류 | 리뷰 + 기준 구현 에러 테스트 |
-| C-VALID | `spring-boot-starter-validation`, 요청 본문은 `@Valid @RequestBody`, 규칙은 DTO 애너테이션. 서비스는 도메인 규칙만 | 제약: `forbidden_pattern` `^(?!.*@Valid).*@RequestBody` in `src/main/java/**/api/**` (같은 줄에 `@Valid` 가 없는 `@RequestBody`) |
+| C-VALID | `spring-boot-starter-validation`, 요청 본문은 `@Valid @RequestBody`, 규칙은 DTO 애너테이션. 서비스는 도메인 규칙만. 숫자만 받는 칸은 `@Pattern(regexp = "[0-9]+")`(Java `\d` 는 기본이 ASCII 라 괜찮지만 `Character.isDigit` 은 유니코드 숫자를 받는다) | 제약: `forbidden_pattern` `^(?!.*@Valid).*@RequestBody` in `src/main/java/**/api/**` (같은 줄에 `@Valid` 가 없는 `@RequestBody`) |
 | C-DATA | 쿼리는 `repository/` 만(JPA Criteria·`EntityManager` 는 서비스에서 import 금지). 트랜잭션은 서비스 메서드 | 제약 + 리뷰: **통합 테스트에 클래스 단위 `@Transactional` 을 걸지 않는다** — 커밋 시점 제약 오류를 숨긴다. 필요하면 `saveAndFlush`·정리 메서드 |
 | C-TEST | 단위 `<Class>Test`, 통합 `<Feature>IntegrationTest`, 대상과 같은 패키지. 시간은 `Clock` 빈을 주입하고 테스트는 고정 `Clock`. 공용 도구는 `src/test/.../support/` | 제약: 파일 `forbidden_path` + 메서드 `forbidden_pattern`(태스크 번호 — 아래 조각) |
 | C-LOG | SLF4J(`LoggerFactory`), 레벨: 요청 실패 `warn`, 서버 오류 `error`. 토큰·비밀번호·주민번호 금지 | 제약: `System.out.print`·`printStackTrace` 금지 |
@@ -41,14 +41,14 @@ dependencies {
     rule: 테스트 파일 이름에 태스크 번호를 넣지 않는다
     detect:
       type: forbidden_path
-      paths: ["src/test/**/*[Tt][Aa][Ss][Kk]*[0-9]*"]
+      paths: ["src/test/**/*[Tt][Aa][Ss][Kk][0-9]*", "src/test/**/*[Tt][Aa][Ss][Kk][_-][0-9]*"]
     severity: error
   - id: TEST-002
     rule: 테스트 메서드 이름에 태스크 번호를 넣지 않는다
     detect:
       type: forbidden_pattern
       paths: ["src/test/**/*.java"]
-      pattern: "(?i)void\\s+task[_-]?\\d"
+      pattern: "(?i)(void\\s+\\w*task[_-]?\\d|class\\s+\\w*task[_-]?\\d)"
     severity: error
   - id: LOG-001
     rule: 표준 출력·printStackTrace 대신 로거

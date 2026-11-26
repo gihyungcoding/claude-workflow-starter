@@ -225,7 +225,7 @@ package.json 에서 찾았습니다.
 |---|---|
 | Spring Boot | https://start.spring.io 또는 `spring init` |
 | React (Vite) | `npm create vite@latest frontend -- --template react-ts` |
-| FastAPI | `uv init` + `uv add fastapi` |
+| FastAPI | `uv init` + `uv add fastapi` (uv 가 없으면 `python -m venv` + `requirements*.txt`, Docker 만 있으면 compose 의 `app` 서비스 — 명령은 `docker compose run --rm -T app …`, 비대화형이라 `-T`) |
 
 ### 부트스트랩은 워크플로우 태스크가 아니다
 
@@ -246,7 +246,7 @@ package.json 에서 찾았습니다.
 
 골격만으로는 2.7 의 규칙이 코드에서 어떤 모양인지 아무도 모른다. **규칙을 모두 지키는 작은 수직 조각 하나**를 지금
 의도적으로 만든다 — 이후 태스크는 "주변 코드"보다 이것을 먼저 본뜬다. 담을 것은 `conventions` 스킬 `stacks/<스택>.md`
-「기준 구현」(입력이 있는 엔드포인트 하나 + 검증 실패가 정한 에러 형식으로 + 층별 테스트 + 토큰만 쓰는 화면 하나).
+「기준 구현」(입력이 있는 엔드포인트 하나 + 검증 실패가 정한 에러 형식으로 + 층별 테스트, 프론트엔드가 있으면 토큰만 쓰는 화면 하나). 숫자·식별자 입력이 있으면 경계 테스트에 비 ASCII 숫자 하나를 넣는다 — 기준 구현은 이후 모든 태스크가 본뜨므로 여기서의 실수가 퍼진다.
 
 1. 결정한 테스트 DB 로 테스트가 실제로 돈다
 2. 린트·테스트·빌드 통과 — 린트 명령은 여기서 `CLAUDE.md` 에 적는다(실행 파일이 골격과 함께 생긴다)

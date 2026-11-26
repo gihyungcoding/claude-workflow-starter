@@ -13,7 +13,7 @@ GATE = "check_conventions.py"
 CONV = "docs/architecture/conventions.md"
 
 ROWS = {
-    "C-TESTDB": "운영과 같음 — PostgreSQL (Testcontainers)",
+    "C-TESTDB": "같음 — PostgreSQL (Testcontainers)",
     "C-LINT": "Spotless + google-java-format",
     "C-LAYOUT": "api → service → repository",
     "C-ERROR": "{code, message}",
@@ -38,6 +38,7 @@ class ConventionsGateTest(ProjectTestCase):
         super().setUp()
         self.project.write("CLAUDE.md", "# 가이드\n\n- **린트**: `./gradlew spotlessCheck`\n")
         self.project.write("src/api/echo.py", "def echo(): ...\n")
+        self.project.write("ruff.toml", "line-length = 100\n")
         self.project.write(CONV, conventions())
 
     def gate(self) -> tuple[int, dict]:
@@ -71,6 +72,8 @@ class ConventionsGateTest(ProjectTestCase):
         self.project.write(CONV, conventions({**ROWS, "C-TESTDB": "다름 — H2, PostgreSQL 기능 쓰면 전환"}))
         self.assertBlocks("C-TESTDB")
         self.project.write(CONV, conventions({**ROWS, "C-TESTDB": "다름 — H2 (ADR-0006, promote_after: TASK-005)"}))
+        self.assertBlocks("ADR-0006 가 docs/decisions 에 없다")       # 없는 번호를 적어도 통과했다
+        self.project.write("docs/decisions/ADR-0006-test-db.md", "# ADR-0006\n")
         self.assertEqual(self.gate()[0], 0)
 
     def test_reference_files_must_exist(self):
@@ -120,7 +123,7 @@ class ConventionsGateTest(ProjectTestCase):
 
     def test_pipe_inside_cell_is_caught(self):
         self.project.write(CONV, conventions({**ROWS, "C-LOG": "print|console 금지"}))
-        self.assertBlocks("C-LOG: 칸이 4개다")
+        self.assertBlocks("C-LOG: 표의 칸이 5개다")
         self.project.write(CONV, conventions({**ROWS, "C-LOG": "print\\|console 금지"}))
         self.assertEqual(self.gate()[0], 0)
 
@@ -130,3 +133,22 @@ class ConventionsGateTest(ProjectTestCase):
         self.project.write("docs/architecture/constraints.yaml",
                            HEADER + constraint("ARCH-001", "forbidden_import", '"src/api/**/*.py"', '"^import repo"'))
         self.assertBlocks("ARCH-001: 위반 1건")
+
+    def test_test_db_decision_must_say_same_or_different(self):
+        # 실제 실행: "SQLite 인메모리 (운영은 PostgreSQL)" 처럼 '다름' 이란 말만 없으면 통과했다
+        self.project.write(CONV, conventions({**ROWS, "C-TESTDB": "SQLite 인메모리 (운영은 PostgreSQL)"}))
+        self.assertBlocks("'같음 — …' 또는 '다름 — …'")
+
+    def test_todo_anywhere_in_cell_is_undecided(self):
+        self.project.write(CONV, conventions({**ROWS, "C-ERROR": "TODO 나중에 — 형식 미정"}))
+        self.assertBlocks("C-ERROR: TODO 가 남았다")
+
+    def test_reference_entry_must_be_a_file(self):
+        self.project.write(CONV, conventions(refs=["src/api"]))
+        self.assertBlocks("기준 파일이 폴더다")
+
+    def test_lint_decided_without_config_file_blocks(self):
+        self.project.path("ruff.toml").unlink()
+        self.assertBlocks("C-LINT: 정했는데 린트 설정 파일이 없다")
+        self.project.write("pyproject.toml", "[tool.ruff]\nline-length = 100\n")
+        self.assertEqual(self.gate()[0], 0)
