@@ -36,6 +36,7 @@ class MockupTestCase(ProjectTestCase):
         self.project.write(f"{OUT}/assets/fluent/unused.svg", "<svg/>")
         self.project.write(f"{OUT}/assets/fluent/LICENSE.md", "MIT\n")
         self.screens = {
+            "app": "모임",
             "badges": {"확정": "is-brand"},
             "groups": ["모임"],
             "screens": [
@@ -334,6 +335,84 @@ KIT = STARTER / ".claude/skills/ui-mockup/kit"
 ROOT = "workflow_design/01_brief/mockup"
 
 
+class FloorTest(MockupTestCase):
+    """하한 — 상한만 재면 빈 화면이 통과한다 (시험 2: 내용이 위 절반에서 끝나고 누를 것·서비스 이름이 없는 홈, 데스크톱에만 있는 규칙,
+    사진 없는 안내 화면에 SNS 피드 표면)"""
+
+    def setUp(self):
+        super().setUp()
+        self.screens["screens"][0]["kind"] = "home"
+        self.pages["screens/home.html"] = self.pages["screens/home.html"].replace("<h1>홈</h1>", '<p class="eyebrow">모임</p><h1>홈</h1>', 1)
+        self.save()
+
+    def test_home_with_app_name_and_action_passes(self):
+        self.assertEqual(self.check()[0], 0, self.check()[1])
+
+    def test_missing_app_field_fails(self):
+        del self.screens["app"]
+        self.assertFlags("app(서비스 이름)이 없다")
+
+    def test_app_name_missing_on_home_fails(self):
+        self.screens["app"] = "썰리그"
+        self.assertFlags("홈 화면에 서비스 이름(썰리그)이 없다")
+
+    def test_home_without_anything_to_press_fails(self):
+        self.pages["screens/home.html"] = page('<p class="eyebrow">모임</p><h1>홈</h1><p>이번 주 일정</p>')
+        self.assertFlags("홈 화면에 누를 것이 없다")
+
+    def test_closed_button_counts_as_the_action_slot(self):
+        self.pages["screens/home.html"] = page('<p class="eyebrow">모임</p><h1>홈</h1>'
+                                               '<span class="btn full is-closed" aria-disabled="true">썰 풀기 — 곧 열려</span>')
+        self.save()
+        self.assertEqual(self.check()[0], 0, self.check()[1])
+
+    def test_state_screens_are_not_held_to_home_floors(self):
+        self.screens["screens"].append({"id": "home--empty", "title": "빈", "group": "모임", "kind": "home"})
+        self.screens["desktop"][0]["merges"].append("home--empty")
+        self.pages["screens/home--empty.html"] = page("<h1>아직 없어</h1>")
+        self.save()
+        self.assertEqual(self.check()[0], 0, self.check()[1])
+
+    def test_desktop_only_section_fails(self):
+        self.pages["screens/desktop/d-home.html"] = page('<h1>홈</h1><section><h2>이 대회는 이렇게 돌아가</h2></section>', up="../../")
+        self.assertFlags("데스크톱에만 있는 구역 「이 대회는 이렇게 돌아가」")
+
+    def test_section_on_both_widths_passes(self):
+        self.pages["screens/detail.html"] = page('<h1>상세</h1><a data-back>뒤로</a><h2>이 대회는 이렇게 돌아가</h2>')
+        self.pages["screens/desktop/d-home.html"] = page('<h1>홈</h1><section><h2>이 대회는 이렇게 돌아가</h2></section>', up="../../")
+        self.save()
+        self.assertEqual(self.check()[0], 0, self.check()[1])
+
+    def test_marked_desktop_only_section_is_a_warning(self):
+        self.pages["screens/desktop/d-home.html"] = page(
+            '<h1>홈</h1><section data-desktop-only="단축키는 키보드에서만"><h2>단축키</h2></section>', up="../../")
+        self.save()
+        code, out = self.check()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(any("단축키는 키보드에서만" in w for w in out["warnings"]), out)
+
+    def test_photo_surface_without_photos_fails(self):
+        self.screens["surface"] = "edge"
+        self.save()
+        self.project.run(SYNC, OUT)
+        link = '<link rel="stylesheet" href="{up}theme.css">'
+        for rel in list(self.pages):
+            up = "../../" if "/desktop/" in rel else "../"
+            self.pages[rel] = self.pages[rel].replace("<body>", link.format(up=up) + "<body>", 1)
+        self.assertFlags("사진·썸네일이 주인공인 표면인데 사진이 있는 화면이 없다")
+
+    def test_approved_mockup_is_not_remeasured(self):
+        del self.screens["app"]
+        self.project.write_json("workflow_design/01_brief/BRIEF_REQ-001.json", {"id": "REQ-001", "mockup": {"status": "approved"}})
+        self.save()
+        self.assertEqual(self.check()[0], 0, self.check()[1])
+
+    def test_audit_measures_fold_fill_and_bundle_pills(self):
+        audit = (STARTER / ".claude/skills/ui-mockup/scripts/audit.html").read_text(encoding="utf-8")
+        for needle in ("fold_fill: 0.6", "bundle_pills: 1", "job.state", "[data-bundle]"):
+            self.assertIn(needle, audit)
+
+
 class KitSyncTest(MockupTestCase):
     """키트 부품 파일은 sync_kit 으로만 — 확정 전 시안이 키트와 다르면 위반 (시험 실행: 손 cp 로 빠뜨림)"""
 
@@ -473,6 +552,8 @@ class SurfacePresetTest(MockupTestCase):
     def setUp(self):
         super().setUp()
         self.screens["surface"] = "edge"
+        self.pages["screens/home.html"] = self.pages["screens/home.html"].replace(
+            "<h1>홈</h1>", '<h1>홈</h1><img class="photo" src="../assets/fluent/calendar.svg" alt="">', 1)   # edge 는 사진이 주인공
         link = '<link rel="stylesheet" href="{up}theme.css">'
         for rel in list(self.pages):
             up = "../../" if "/desktop/" in rel else "../"

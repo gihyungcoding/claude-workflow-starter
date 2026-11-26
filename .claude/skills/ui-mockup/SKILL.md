@@ -64,6 +64,8 @@ python3 UM/kit/derive.py --brand "#RRGGBB" --tone warm|neutral|cool [--mode dark
 
 **표면 프리셋** — 도메인이 다르면 같은 골격이라도 표면 관례가 다르다(시험: 쇼핑·SNS·방송·배달·교육·여행 홈을 키트로 그렸더니
 브랜드 색만 다른 "회색 바탕 + 흰 블록" 일곱 장이 나왔다). 참조 서비스의 표면을 보고 `screens.json` 에 `"surface"` 를 정한다 —
+**도메인 이름이 아니라 이 요청의 화면에 무엇이 담기는지로 고른다.** `edge`·`flat-dense`·`dark-media` 는 사진·썸네일이 주인공일 때만 맞다
+(시험 2: SNS 에서 링크로 오는 대회 안내 화면에 `edge` 를 써서 흰 바탕에 글만 남았다 — 정적 검사가 사진 없는 화면에서 막는다).
 `kit/themes/<이름>.css` 의 머리말에 근거 서비스가 있다. 정하면 `sync_kit.py` 가 `theme.css` 로 옮기고, 모든 화면이
 `components.css` 다음 줄에 `theme.css` 를 건다.
 
@@ -109,7 +111,7 @@ python3 UM/kit/derive.py --brand "#RRGGBB" --tone warm|neutral|cool [--mode dark
 ## 3. 모바일 화면 목록 (`OUT/screens.json`)
 
 ```json
-{"title": "…", "story": {"headline": "이 앱이 갈등을 푸는 방식 한 문장(<em>강조</em>)", "summary": "2~3문장", "ideas": [{"title": "", "desc": ""}]},
+{"title": "…", "app": "서비스 이름(홈 화면에 보인다)", "story": {"headline": "이 앱이 갈등을 푸는 방식 한 문장(<em>강조</em>)", "summary": "2~3문장", "ideas": [{"title": "", "desc": ""}]},
  "badges": {"…": "is-brand"}, "avatar_style": "people",
  "people": [{"name": "", "why": "", "win": "", "wants": [{"q": "", "at": ["화면 id"]}], "core": true}],
  "groups": ["흐름 이름", "…"],
@@ -163,7 +165,7 @@ python3 UM/kit/derive.py --brand "#RRGGBB" --tone warm|neutral|cool [--mode dark
 ## 6. 검사 (통과할 때까지, 수정은 흐름별로 한꺼번에)
 
 ```bash
-python3 UM/scripts/check_mockup.py "$OUT"          # 정적: h1·주 버튼·인라인 style·색 값·이모지·링크·이미지·데스크톱 묶음
+python3 UM/scripts/check_mockup.py "$OUT"          # 정적: h1·주 버튼·인라인 style·색 값·이모지·링크·이미지·데스크톱 묶음·하한
 python3 UM/scripts/build_canvas.py "$OUT"          # 캔버스 index.html + foundation·components + audit.html
 python3 UM/scripts/prune_assets.py "$OUT"          # 화면이 쓰지 않는 그림을 지운다 (커밋 크기)
 ```
@@ -176,6 +178,17 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory "$OUT"
 
 `window.__audit` 의 결과를 `OUT/audit.json` 으로 저장한다. 대비 AA · 터치(모바일 44px, 데스크톱 24px) · 가로 넘침 ·
 글자 크기 7종·굵기 3종·서체 2종 이하 · 4px 격자 95% · radius 4종 · 그림자 3종 · h1 1개 · 주 버튼 1개 · 데스크톱 한 줄 80자.
+
+**상한만 지키면 빈 화면이 통과한다** (시험 2: 읽기 전용 홈 한 장이 전부 통과했는데 아래 절반이 비고 누를 것도 서비스 이름도 없었다). 하한:
+
+| 하한 | 어디서 | 막는 것 |
+|---|---|---|
+| 홈·목록 기본 화면은 첫 화면 60% 까지 내용 | 렌더링 | 위쪽 절반에서 끝나는 화면 |
+| 한 데이터 묶음에 알약(배지·칩) 1개 | 렌더링 | "제출 중" 배지와 "1일 남음" 칩이 같은 단계를 두 번 말하는 것 |
+| `screens.json` `app` 이 홈 기본 화면에 보인다 | 정적 | 링크로 처음 온 사람이 어디인지 모르는 화면 |
+| 홈 기본 화면에 누를 것 1개 이상 | 정적 | 행동을 다음 요청으로 미뤄 문서처럼 끝나는 홈 — 그 자리를 닫힌 버튼(`span.btn.is-closed`)으로라도 둔다 |
+| 데스크톱의 구역 제목·묶음이 모바일에도 | 정적 | 규칙 설명처럼 쓸모 있는 내용이 데스크톱에만 있는 것 |
+| 사진용 표면이면 사진이 있다 | 정적 | 위 「표면 프리셋」 |
 그다음 `references/checklist.md` 의 P0·P1 을 화면마다 보고 고친다.
 
 ## 7. 사람 검토 — 캔버스와 의견
