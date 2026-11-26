@@ -1,0 +1,127 @@
+# Spring Boot — 추천 기본값
+
+버전 번호는 적지 않는다 — 설치할 때의 최신 안정판을 쓴다. 아래는 **추천**이다. 바꾸면 `conventions.md` 「결정 메모」에 이유를 적는다
+(추천에서 벗어나면 ADR — SKILL MUST 3). 정규식은 표에 **날것으로**, `constraints.yaml` 에는 큰따옴표 안에 역슬래시 두 번으로 옮긴다.
+
+| id | 추천 | 검사 |
+|---|---|---|
+| C-TESTDB | `같음` — 운영과 같은 DB 를 Testcontainers 로(Spring Boot `@ServiceConnection`). 공용 베이스 클래스 하나 | 게이트 |
+| C-LINT | Spotless + google-java-format, `removeUnusedImports()`. `./gradlew spotlessCheck` 를 린트 명령으로 | `spotlessCheck` |
+| C-LAYOUT | `api/`(컨트롤러·요청 DTO `api/dto`) → `service/`(서비스·**응답 DTO `service/dto`**) → `repository/` → `domain/`. 설정은 `config/` | 제약: `service`·`repository`·`domain` 은 `api` 를 import 하지 않는다 / `domain` 은 `service` 를 import 하지 않는다 |
+| C-ERROR | `{code, message, details?}` record 하나(`api/dto/ErrorResponse` 가 아니라 **`common/error/`** — 보안 설정·필터도 쓰므로). 도메인 예외는 기반 `AppException(code, status)` 하나와 하위 클래스. 예외 → 응답 변환은 `@RestControllerAdvice` 하나. **code 는 `UPPER_SNAKE`**, 검증 실패는 400 `VALIDATION_FAILED` + `details` 에 칸별 오류 | 리뷰 + 기준 구현 에러 테스트 |
+| C-VALID | `spring-boot-starter-validation`, 요청 본문은 `@Valid @RequestBody`, 규칙은 DTO 애너테이션. 서비스는 도메인 규칙만. 숫자만 받는 칸은 `@Pattern(regexp = "[0-9]+")`(Java `\d` 는 기본이 ASCII 라 괜찮지만 `Character.isDigit` 은 유니코드 숫자를 받는다) | 제약: `forbidden_pattern` `^(?!.*@Valid).*@RequestBody` in `src/main/java/**/api/**` (같은 줄에 `@Valid` 가 없는 `@RequestBody`) |
+| C-DATA | 쿼리는 `repository/` 만(JPA Criteria·`EntityManager` 는 서비스에서 import 금지). 트랜잭션은 서비스 메서드 | 제약 + 리뷰: **통합 테스트에 클래스 단위 `@Transactional` 을 걸지 않는다** — 커밋 시점 제약 오류를 숨긴다. 필요하면 `saveAndFlush`·정리 메서드 |
+| C-TEST | 단위 `<Class>Test`, 통합 `<Feature>IntegrationTest`, 대상과 같은 패키지. 시간은 `Clock` 빈을 주입하고 테스트는 고정 `Clock`. 공용 도구는 `src/test/.../support/` | 제약: 파일 `forbidden_path` + 메서드 `forbidden_pattern`(태스크 번호 — 아래 조각) |
+| C-LOG | SLF4J(`LoggerFactory`), 레벨: 요청 실패 `warn`, 서버 오류 `error`. 토큰·비밀번호·주민번호 금지 | 제약: `System.out.print`·`printStackTrace` 금지 |
+
+## 설정 조각
+
+```groovy
+// build.gradle
+plugins { id 'com.diffplug.spotless' version '<최신>' }
+spotless { java { googleJavaFormat(); removeUnusedImports() } }
+dependencies {
+  implementation 'org.springframework.boot:spring-boot-starter-validation'
+  testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+  testImplementation 'org.testcontainers:postgresql'   // 운영 DB 에 맞춰
+}
+```
+
+```yaml
+# constraints.yaml — 빈 저장소에서 error 로 시작한다. 경로는 4.5 기준 구현 뒤 no_target 0 으로 확인
+# 블록 형식으로 쓴다 — check_architecture.py 의 파서는 { } 흐름 매핑을 읽지 못한다
+  - id: ARCH-001
+    rule: service·repository·domain 은 api 를 import 하지 않는다
+    detect:
+      type: forbidden_import
+      paths: ["src/main/java/**/service/**", "src/main/java/**/repository/**", "src/main/java/**/domain/**"]
+      pattern: "^import .*\\.api\\."
+    severity: error
+  - id: TEST-001
+    rule: 테스트 파일 이름에 태스크 번호를 넣지 않는다
+    detect:
+      type: forbidden_path
+      paths: ["src/test/**/*[Tt][Aa][Ss][Kk][0-9]*", "src/test/**/*[Tt][Aa][Ss][Kk][_-][0-9]*"]
+    severity: error
+  - id: TEST-002
+    rule: 테스트 메서드 이름에 태스크 번호를 넣지 않는다
+    detect:
+      type: forbidden_pattern
+      paths: ["src/test/**/*.java"]
+      pattern: "(?i)(void\\s+\\w*task[_-]?\\d|class\\s+\\w*task[_-]?\\d)"
+    severity: error
+  - id: LOG-001
+    rule: 표준 출력·printStackTrace 대신 로거
+    detect:
+      type: forbidden_pattern
+      paths: ["src/main/java/**/*.java"]
+      pattern: "System\\.(out|err)\\.print|\\.printStackTrace\\("
+    severity: error
+```
+
+## 설계 원칙 (C-DESIGN)
+
+| 단계 | Spring Boot 에서 |
+|---|---|
+| `끄기` | 위 정규식 제약만 |
+| `신호만` (추천) | **ArchUnit** 테스트로 계층·순환(테스트라 실패한다). 지표는 PMD 를 `ignoreFailures = true` 로 — 보고서(`build/reports/pmd/`)를 리뷰가 본다. 명령 `./gradlew pmdMain` 을 C-DESIGN 검사 칸에 |
+| `엄격` | PMD `ignoreFailures = false`. 서비스는 저장소 인터페이스(포트)만 의존하고 구현은 Spring 이 주입(ArchUnit 규칙 추가). 포트마다 추상 계약 테스트 클래스 하나를 가짜·실제 구현이 상속 |
+
+```java
+// src/test/java/<base>/ArchitectureTest.java — testImplementation 'com.tngtech.archunit:archunit-junit5:<최신>'
+// (ArchUnit 1.5·JUnit 5·Gradle 8 로 실제 실행 확인. 처음 판은 import 가 없어 컴파일되지 않았다)
+import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+
+@AnalyzeClasses(packages = "<base>")
+class ArchitectureTest {
+  @ArchTest static final ArchRule layers = layeredArchitecture().consideringOnlyDependenciesInLayers()
+      .layer("Api").definedBy("..api..")
+      .layer("Service").definedBy("..service..")
+      .layer("Repository").definedBy("..repository..")
+      .layer("Domain").definedBy("..domain..")     // 층으로 정의하지 않으면 domain → api 같은 역방향을 순환 규칙으로만 잡는다
+      .whereLayer("Api").mayNotBeAccessedByAnyLayer()
+      .whereLayer("Service").mayOnlyBeAccessedByLayers("Api")
+      .whereLayer("Repository").mayOnlyBeAccessedByLayers("Service");
+  @ArchTest static final ArchRule noCycles = slices().matching("<base>.(*)..").should().beFreeOfCycles();
+}
+```
+
+```groovy
+// build.gradle — ArchUnit 을 돌리려면 JUnit Platform 도: testRuntimeOnly 'org.junit.platform:junit-platform-launcher' · test { useJUnitPlatform() }
+// PMD 설계 지표만 (PMD 7.29 로 실제 실행 확인 — 아래 속성 이름 모두 유효)
+plugins { id 'pmd' }
+pmd { toolVersion = '<최신>'; ruleSets = []; ruleSetFiles = files('config/pmd/design.xml'); ignoreFailures = true /* 엄격: false */ }
+```
+
+```xml
+<!-- config/pmd/design.xml -->
+<ruleset name="design" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0">
+  <description>C-DESIGN 설계 지표</description>   <!-- 없으면 "description is missing" 경고(이후 버전 필수) -->
+  <rule ref="category/java/design.xml/GodClass"/>
+  <rule ref="category/java/design.xml/CyclomaticComplexity"><properties><property name="methodReportLevel" value="10"/></properties></rule>
+  <rule ref="category/java/design.xml/TooManyMethods"><properties><property name="maxmethods" value="15"/></properties></rule>
+  <rule ref="category/java/design.xml/ExcessiveParameterList"><properties><property name="minimum" value="7"/></properties></rule>
+  <rule ref="category/java/design.xml/CouplingBetweenObjects"><properties><property name="threshold" value="20"/></properties></rule>
+</ruleset>
+```
+
+엄격에서도 포트는 **경계(저장소·외부 호출)에만** — JPA 저장소 인터페이스가 이미 포트 역할을 하면 그 위에 하나 더 만들지 않는다.
+
+**실제 실행에서 확인한 것**: 위 → 아래 역방향(repository·domain → api·service), 패키지 순환을 잡았고, `config` 가 서비스·저장소를 조립하는 것은
+`consideringOnlyDependenciesInLayers` 덕분에 허용됐다(`consideringAllDependencies` 로 바꾸면 조립 코드가 위반 4건이 된다).
+PMD 는 메서드 수·복잡도·매개변수 7개(`minimum=7` 은 7개부터)·결합 20 초과를 보고했다. `GodClass` 는 크기만으로는 걸리지 않고
+다른 클래스 데이터를 많이 쓰고 응집이 낮을 때 걸린다(WMC·ATFD·TCC). `ignoreFailures = true` 면 빌드는 통과하고 보고서
+`build/reports/pmd/main.html` 이 남으며 콘솔에 건수가 나온다(`-q` 면 숨는다), `false` 면 실패(exit 1).
+PMD 가 매번 내는 `auxClasspath … wrong java version` 경고는 무해하다 — `PMD_JAVA_DISABLE_AUX_CLASSPATH_WARNINGS=true` 로 끈다.
+
+## 기준 구현 (wf-init 4.5)
+- 엔드포인트 하나(예: `GET /api/health` 가 아니라 **입력이 있는** 작은 것 — `POST /api/echo` 처럼 검증 규칙 하나)
+- 요청 DTO + `@Valid` → 검증 실패가 `C-ERROR` 형식 400 으로
+- 서비스 + 응답 DTO(`service/dto`) + 저장소 하나(실제 테이블 하나, 마이그레이션 하나)
+- 테스트 파일 둘: 서비스 단위(`<Service>Test` — 성공·규칙 실패), 통합(`<Feature>IntegrationTest` — Testcontainers, 성공·검증 실패). 고정 `Clock`
+- `spotlessCheck`·테스트·`check_architecture.py`(no_target 0) 통과

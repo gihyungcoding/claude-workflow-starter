@@ -114,6 +114,7 @@ constraints:
 | type | 위반 조건 |
 |---|---|
 | `forbidden_import` | `paths` 의 파일에서 `pattern` 이 발견되면 |
+| `forbidden_pattern` | `forbidden_import` 와 같다 — import 가 아닌 것(색상 리터럴, 매직 치수)을 금지할 때 이름으로 구분한다 |
 | `forbidden_path` | `paths` 에 해당하는 파일이 존재하면 |
 | `required_path` | `paths` 에 해당하는 파일이 하나도 없으면 |
 
@@ -124,6 +125,7 @@ constraints:
 
 새 제약은 `warn` 으로 시작해서, 기존 코드가 통과하는 것을 확인한 뒤 `error` 로 올리는
 편이 안전하다. 처음부터 `error` 로 넣으면 무관한 태스크가 줄줄이 막힌다.
+**`warn` 으로 시작하면 `promote_after: TASK-NNN` 을 반드시 적는다** — 없으면 `check_architecture.py` 가 경고하고, 그 태스크가 done 이 되면 승격 기한이 지났다고 알린다.
 
 ### ★ 반드시 검증한다
 

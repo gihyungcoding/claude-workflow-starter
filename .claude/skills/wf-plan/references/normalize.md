@@ -134,7 +134,12 @@ Foundation 문서가 아직 없으면(빈 프로젝트) 이 단계를 건너뛰�
 - 관련 기능의 기존 구현을 찾는다 (Grep/Glob)
 - **재사용할 수 있는 것**을 먼저 찾는다 — 기존 유틸리티·데코레이터·베이스 클래스
 - 변경 대상 파일과, 변경이 파급되는 파일을 구분한다
-- 기존 테스트가 있으면 그 위치와 패턴을 확인한다 (Phase 2b가 따라야 할 관례)
+- 관례는 **`docs/architecture/conventions.md` → 그 파일 `## 기준 파일` 의 기준 구현 → 주변 코드**
+  순서로 확인한다. 테스트 위치·이름·DB·시간 고정은 `C-TEST`·`C-TESTDB` 가 먼저고, 기존 테스트는
+  그다음이다 (Phase 2b가 따라야 할 관례). 주변 코드가 conventions.md 와 다르면 conventions.md 를 따른다
+- **이 태스크가 conventions.md 에 없는 관례를 정해야 하면**(새 DTO 위치·새 에러 형식 같은 것)
+  `codebase_analysis.new_conventions` 에 `{"item", "question"}` 으로 적는다. 정한 결과는
+  Phase 3 이 DEV 의 `new_conventions` 로 남긴다
 - **route가 Frontend이고 화면이 특정 API 응답 필드에 의존한다면, 그 필드가 실제
   백엔드 응답 DTO에 존재하는지 코드로 확인한다.** feature 문서의 문장(예: "구역별
   요약을 보여준다")을 근거로 필드가 있다고 가정하지 않는다 — 백엔드 소스를 열어
@@ -225,6 +230,8 @@ route 가 Frontend 이면 화면 간 이동을 flow 로 적었는가, 타입을 
         "note": "권한 체크 데코레이터 — 새로 만들지 말 것" }
     ],
     "existing_tests": ["tests/api/test_store_search.py"],
+    "new_conventions": [],           // conventions.md 에 없어 이 태스크가 정할 관례
+    //  예: { "item": "C-LAYOUT", "question": "검색 요청 DTO 를 api/ 와 services/ 중 어디에 두나" }
     "unresolved": [],
     "exploration": { "method": "explore", "calls": 1, "main_reads": 2 }
   },

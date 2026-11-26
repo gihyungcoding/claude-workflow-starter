@@ -11,8 +11,10 @@
 무엇을 보호하나
 ---------------
     constraints   docs/architecture/constraints.yaml
-    gate-config   린트·타입·포맷 설정 (eslint, tsconfig, prettier, biome, ruff, mypy,
-                  checkstyle, .pre-commit-config.yaml)
+    conventions   docs/architecture/conventions.md (코딩 규칙 정본)
+    gate-config   린트·타입·포맷 설정 (eslint, oxlint, stylelint, tsconfig, prettier, biome,
+                  ruff, mypy, checkstyle, .editorconfig, dependency-cruiser, importlinter,
+                  .pre-commit-config.yaml)
     approved-test 통합 HITL(#1·2)에서 승인된 Red 테스트 (TEST_<ID>.json 의 test_files)
 
 언제 묻나 — Phase 3·4 의 ACTIVE 태스크가 있을 때만
@@ -61,11 +63,19 @@ from _utils import artifact_path, constraints_path, list_tasks, load_json, repo_
 #: 이 Phase 의 ACTIVE 태스크가 있을 때만 묻는다.
 GUARDED_PHASES = {"3", "4"}
 
+#: 코딩 규칙 정본. 린트 설정으로 옮기지 못한 규칙(배치·이름·에러 형식)이 여기 산문으로 남는다.
+CONVENTIONS_REL = "docs/architecture/conventions.md"
+
 #: 린트·타입·포맷 설정. 파일명(basename) 기준 glob.
 GATE_CONFIG_PATTERNS = (
     ".eslintrc",
     ".eslintrc.*",
     "eslint.config.*",
+    ".oxlintrc*",
+    ".stylelintrc*",
+    ".editorconfig",
+    ".dependency-cruiser.*",        # C-DESIGN — 폴더 방향·순환 (React)
+    ".importlinter",                # C-DESIGN — 계층 계약 (Python, pyproject 밖에 둘 때)
     ".prettierrc",
     ".prettierrc.*",
     "prettier.config.*",
@@ -138,6 +148,9 @@ def classify(rel: str, tasks: list[dict]) -> tuple[str, dict] | None:
     if path_key(rel) == path_key(constraints_rel):
         return "constraints", tasks[0]
 
+    if path_key(rel) == path_key(CONVENTIONS_REL):
+        return "conventions", tasks[0]
+
     if matches_gate_config(rel.rsplit("/", 1)[-1]):
         return "gate-config", tasks[0]
 
@@ -154,6 +167,12 @@ def reason_for(kind: str, rel: str, task: dict) -> str:
             f"아키텍처 제약 파일 수정: {rel}\n"
             f"  {where}. 구현·검증 중에 제약을 바꾸면 위반을 고치지 않고 통과시킬 수 있다.\n"
             "  제약이 틀렸다면 ADR 과 함께 고친다(절대 규칙 7). 위반을 피하려는 수정이면 코드를 고친다."
+        )
+    if kind == "conventions":
+        return (
+            f"코딩 규칙 문서 수정: {rel}\n"
+            f"  {where}. 구현·검증 중에 규칙을 바꾸면 위반을 고치지 않고 통과시킬 수 있다.\n"
+            "  규칙이 틀렸다면 회고(Phase 5)에서 제안한다. 위반을 피하려는 수정이면 코드를 고친다."
         )
     if kind == "gate-config":
         return (

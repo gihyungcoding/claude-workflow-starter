@@ -16,7 +16,11 @@ description: >-
 2. 테스트를 실행해 **실제로 실패하는 것을 확인**한다 (실행 출력을 남긴다)
 3. 실패 사유가 **"구현이 없어서"** 인지 확인한다 — 테스트 코드 자체의 결함은 Red 가 아니다
    (정적 컴파일 언어는 Step 3의 「컴파일 언어」 절을 먼저 읽는다)
-4. 기존 테스트 파일의 관례를 따른다 (Phase 1의 `codebase_analysis.existing_tests`)
+4. 테스트 관례(위치·이름·DB·시간 고정)는 `docs/architecture/conventions.md` 의 `C-TEST`·`C-TESTDB`
+   와 `## 기준 파일` 의 기준 테스트를 먼저 따르고, 거기 없는 것만 기존 테스트 파일
+   (Phase 1의 `codebase_analysis.existing_tests`)을 따른다. 기존 테스트가 conventions.md 와
+   다르면 conventions.md 쪽이다. 셋 다 없는 관례를 정했으면 Phase 3 의 `new_conventions` 로
+   넘어가도록 체크포인트 `decisions` 에 남긴다
 5. **시나리오와 Red 테스트를 한 번에** `AskUserQuestion` 으로 승인받는다 (HITL#1·2 통합, Step 6).
    승인 하나로 `generate_red_trigger` 와 `human_review.approved` 를 함께 기록한다
 

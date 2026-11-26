@@ -220,6 +220,22 @@ def overdue_promotions(constraints: list[dict]) -> list[dict]:
     return out
 
 
+def missing_promotions(constraints: list[dict]) -> list[str]:
+    """promote_after 가 없는 warn 제약의 ID.
+
+    overdue_promotions() 는 기한이 적혀 있어야 지난 것을 알아챈다. 기한을 아예 적지 않은
+    warn 은 거기서 빠지므로 영원히 warn 으로 남는다 — 실사용에서 승격을 '나중에' 로만 두고
+    잊은 제약이 그랬다. 경고일 뿐 실패 사유는 아니다(warn 의 기존 동작을 바꾸지 않는다).
+    """
+    out = []
+    for c in constraints:
+        if str(c.get("severity", "error")).lower() != "warn":
+            continue
+        if not c.get("promote_after"):
+            out.append(c.get("id", "?"))
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--json", action="store_true", help="JSON 으로 출력")
@@ -268,7 +284,9 @@ def main() -> int:
                 warns += len(violations)
         # 검사 대상이 0개면 "통과"가 아니다. --changed-only 는 예외 —
         # 그 계층에 변경이 없었다는 뜻이지 glob 이 틀렸다는 뜻이 아니다.
-        if scanned == 0 and not violations and limit is None:
+        # forbidden_path 도 예외 — 금지된 파일이 0개인 것이 곧 통과다.
+        kind = (constraint.get("detect") or {}).get("type")
+        if scanned == 0 and not violations and limit is None and kind != "forbidden_path":
             no_target.append(constraint.get("id", "?"))
         results.append(
             {
@@ -282,6 +300,7 @@ def main() -> int:
         )
 
     overdue = overdue_promotions(constraints) if limit is None else []
+    unscheduled = missing_promotions(constraints) if limit is None else []
 
     if args.json:
         print(
@@ -289,6 +308,7 @@ def main() -> int:
                 {
                     "status": "fail" if errors else ("no_target" if no_target else "pass"),
                     "overdue_promotions": overdue,
+                    "missing_promote_after": unscheduled,
                     "error_count": errors,
                     "warn_count": warns,
                     "no_target": no_target,
@@ -342,9 +362,14 @@ def main() -> int:
             "  promote_after 의 태스크가 끝났습니다. severity 를 error 로 올리고 ADR 로 남기거나,\n"
             "  아직 올릴 수 없다면 promote_after 를 다시 정하세요."
         )
+    if unscheduled:
+        print(
+            f"⚠ promote_after 가 없는 warn 제약 {len(unscheduled)}건: {', '.join(unscheduled)}\n"
+            "  warn 은 임시 상태입니다. error 로 올릴 시점의 태스크를 promote_after 에 적으세요."
+        )
     if warns:
         print(f"경고 {warns}건{scope}. 진행은 가능합니다.")
-    if not no_target and not warns and not overdue:
+    if not no_target and not warns and not overdue and not unscheduled:
         print(f"제약 {len(constraints)}건 모두 통과{scope} — 파일 {total_files}개 검사")
     return 0
 

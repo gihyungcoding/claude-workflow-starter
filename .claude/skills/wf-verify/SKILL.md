@@ -338,10 +338,16 @@ Phase 4 — TASK-001    status: WARN
   아키텍처 제약 2건 통과, 경고 1건 (ARCH-003)
   변경     3 files, +42 -4
   리뷰     지적 없음
+  새 관례  이 태스크가 처음 정한 관례 1건
+    · C-ERROR — 도메인 예외는 <Domain>Exception 하나에 코드 enum 으로 구분 (src/domain/store_errors.py)
 
   acceptance_criteria  2/3 PASS, 1 WARN
     ⚠ 응답 시간 20% 이내 증가 — 측정하지 않음 (성능 테스트 부재)
 ```
+
+**`DEV_<ID>.json` 의 `new_conventions` 를 "이 태스크가 처음 정한 관례 n건"으로 보여 준다.**
+판정에는 영향이 없다. 다음 태스크가 이 코드를 따라 쓰게 되므로 사람이 지금 본다.
+conventions.md 반영 여부는 Phase 5 의 `rule_proposals` 에서 정한다. 0건이면 줄을 생략한다.
 
 `AskUserQuestion`:
 

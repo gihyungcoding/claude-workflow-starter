@@ -7,7 +7,7 @@ Foundation 문서를 순서대로 만든다. 이미 있는 것은 건너뛴다.
 ## 0. 현재 상태 확인
 
 ```bash
-ls docs/product/product.md docs/architecture/architecture.md docs/decisions/ADR-*.md 2>/dev/null
+ls docs/product/product.md docs/architecture/architecture.md docs/architecture/conventions.md docs/decisions/ADR-*.md 2>/dev/null
 grep -c "TODO" docs/product/product.md docs/architecture/architecture.md 2>/dev/null
 ```
 
@@ -18,6 +18,7 @@ Foundation 상태
 
   product.md        미작성 (TODO 12개)
   architecture.md   미작성 (TODO 8개)
+  conventions.md    없음 (코딩 규칙 — 2.7)
   ADR               1건 (ADR-0001, 형식 예시)
   CLAUDE.md         TODO 3곳
 ```
@@ -140,6 +141,17 @@ UI 라이브러리를 정하셨나요?
 처럼 흔히 추천되는 서체는 한글이 없어 시스템 폰트로 폴백되고, 그러면 정한 것이
 화면에 나타나지 않는다.
 
+## 2.7. 코딩 규칙 — 코드 없이 정할 수 있는 것은 지금
+
+**`conventions` 스킬**로 `docs/architecture/conventions.md` 를 만든다. 코드가 없으니 "주변 코드를 따른다"는 아무것도 정하지 않는다 —
+그대로 두면 첫 태스크가 쓴 코드가 곧 컨벤션이 된다. 시험 실행에서 10건 중 7건(테스트 DB·포매터·DTO 위치·입력 검증·
+에러 형식·테스트 이름·제약 경로)이 코드 없이 정할 수 있었는데 나중에 정해 이전 태스크·재정렬·두 번째 PR 이 생겼다.
+
+- 항목은 스킬의 `references/items.md`, 추천값은 `stacks/<스택>.md`(Spring Boot·React(Vite)·FastAPI). 스택 관례는 묻지 않고 정하고, 갈리는 것만 묻는다
+- **테스트 DB 는 위 「테스트는 무엇으로 도는가」의 결정을 `C-TESTDB` 로 옮긴다** — 운영과 다르면 ADR 과 전환할 태스크까지
+- 제약은 `constraints.yaml` 에 **`error` 로** 넣는다(빈 저장소에는 어길 코드가 없다). 경로 확인은 4.5 기준 구현 뒤
+- 되돌리기 어려운 결정(테스트 DB·검증 방식)은 3단계 ADR 후보로 넘긴다
+
 ## 3. 첫 ADR
 
 `adr` 스킬로 이 프로젝트의 첫 실질적 결정을 기록한다.
@@ -213,7 +225,7 @@ package.json 에서 찾았습니다.
 |---|---|
 | Spring Boot | https://start.spring.io 또는 `spring init` |
 | React (Vite) | `npm create vite@latest frontend -- --template react-ts` |
-| FastAPI | `uv init` + `uv add fastapi` |
+| FastAPI | `uv init` + `uv add fastapi` (uv 가 없으면 `python -m venv` + `requirements*.txt`, Docker 만 있으면 compose 의 `app` 서비스 — 명령은 `docker compose run --rm -T app …`, 비대화형이라 `-T`) |
 
 ### 부트스트랩은 워크플로우 태스크가 아니다
 
@@ -227,14 +239,29 @@ package.json 에서 찾았습니다.
 알게 되면 되돌아와야 한다.
 
 골격을 만든 뒤 **테스트·린트·빌드 명령을 다시 돌려 `CLAUDE.md` 를 확정한다.**
-이 시점에 린터도 함께 넣는 편이 거의 항상 낫다 — 코드가 적을 때 포매터를 도입하면
-변경이 작고, 나중에 넣으면 전체 파일이 한 번에 재포맷되어 리뷰가 불가능해진다.
+린터·포매터는 **지금 넣는다**(권고가 아니라 게이트가 본다) — 코드가 적을 때 넣으면 변경이 작고, 나중에 넣으면 전체 파일이
+한 번에 재포맷되어 리뷰가 불가능해진다(시험 실행: 첫 Red 뒤에 넣어 15개 파일 재정렬).
+
+### 기준 구현 — 규칙을 첫 코드로 증명한다
+
+골격만으로는 2.7 의 규칙이 코드에서 어떤 모양인지 아무도 모른다. **규칙을 모두 지키는 작은 수직 조각 하나**를 지금
+의도적으로 만든다 — 이후 태스크는 "주변 코드"보다 이것을 먼저 본뜬다. 담을 것은 `conventions` 스킬 `stacks/<스택>.md`
+「기준 구현」(입력이 있는 엔드포인트 하나 + 검증 실패가 정한 에러 형식으로 + 층별 테스트, 프론트엔드가 있으면 토큰만 쓰는 화면 하나). 숫자·식별자 입력이 있으면 경계 테스트에 비 ASCII 숫자 하나를 넣는다 — 기준 구현은 이후 모든 태스크가 본뜨므로 여기서의 실수가 퍼진다.
+
+1. 결정한 테스트 DB 로 테스트가 실제로 돈다
+2. 린트·테스트·빌드 통과 — 린트 명령은 여기서 `CLAUDE.md` 에 적는다(실행 파일이 골격과 함께 생긴다)
+3. `python3 scripts/check_architecture.py --json` — 위반 0, 검사 대상 없음(`no_target`) 0(금지 경로 제약은 파일이 없는 것이 통과). 제약마다 일부러 어겨 걸리는지 확인하고 되돌린다 — 줄 정규식은 어긴 줄, 금지 경로는 금지된 이름의 파일을 잠깐
+4. `AskUserQuestion` 으로 기준 파일과 규칙 표를 보여 주고 확인받는다 → `conventions.md` 상태를 `기준 구현 확인`, 「기준 파일」에 경로
+5. `python3 scripts/check_conventions.py` 통과 — `/wf-start` 가 첫 태스크 전에 같은 게이트를 돈다
+
+기준 구현도 부트스트랩이다 — 태스크로 만들지 않고 기준 브랜치에서 커밋한다(위 「부트스트랩은 워크플로우 태스크가 아니다」).
 
 ## 5. 마무리
 
 ```bash
 python3 scripts/rebuild_doc_index.py
 python3 scripts/hooks/check_artifact_paths.py --all
+python3 scripts/check_conventions.py          # 첫 태스크 전 게이트 — /wf-start 도 돈다
 git add docs/ CLAUDE.md && git commit -m "docs: Foundation 문서 초기 작성"
 ```
 
@@ -243,10 +270,11 @@ Foundation 준비 완료
 
   product.md       ✓  사용자 3역할, 범위 외 4항목
   architecture.md  ✓  3계층, 제약 2건
-  constraints.yaml ✓  ARCH-001(error), ARCH-002(warn) — 검증 통과
+  constraints.yaml ✓  ARCH-001(error), TEST-001(error) — 검증 통과, 검사 대상 없음 0
+  conventions.md   ✓  10항목 정함 · 기준 구현 확인 (기준 파일 6개) — check_conventions 통과
   ADR              2건
   CLAUDE.md        ✓  pytest / ruff check  (실행 확인함)
-  프로젝트 골격     ✓  pytest → 0 tests, exit 0
+  프로젝트 골격     ✓  기준 구현 포함 — pytest 4 passed, ruff 0
   design.md        ✓  방향까지 (§4 토큰·§5 의미 매핑은 첫 기능 이후)
 
 다음: /wf-plan "<만들 것>" 으로 첫 기능을 계획하세요 (문서부터 쓰려면 /wf-feature <기능이름>).

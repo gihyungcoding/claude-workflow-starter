@@ -149,9 +149,24 @@ KPT 는 `REFLECT_<ID>.json` 에 들어가므로 따로 저장하지 않는다.
 않으면 아무도 기억하지 않는다. drift 는 발견될 때 적어두지
 않으면 다음에 또 발견된다.
 
-#### 3-3. 워크플로우 규칙 개선
+#### 3-3. 워크플로우·프로젝트 규칙 개선
 
-`docs/workflow/`, `.claude/skills/` 를 고쳐야 하는 것.
+`docs/workflow/`, `.claude/skills/` 를 고쳐야 하는 것, 그리고 **프로젝트 규칙 파일** —
+`docs/architecture/conventions.md`, `docs/architecture/constraints.yaml`, 린트·포맷 설정 파일
+(`ruff.toml`·`.eslintrc.*`·`.editorconfig` 같은 것) — 을 고쳐야 하는 것. 둘 다 `target` 이 된다.
+
+**`DEV_<ID>.json` 의 `new_conventions` 는 빠짐없이 `rule_proposals` 로 옮긴다.**
+항목마다 `target: "docs/architecture/conventions.md"`, `section` 에 항목 id(`C-…` 또는 새 이름),
+`change` 에 `decision`, `evidence` 에 `files` 를 적는다. 검토 없이 굳은 관례가 다음 태스크의
+"주변 코드"가 되는 것을 여기서 끊는다.
+
+```jsonc
+{ "target": "docs/architecture/conventions.md",
+  "section": "C-ERROR",
+  "change": "도메인 예외는 <Domain>Exception 하나에 코드 enum 으로 구분",
+  "evidence": "DEV_TASK-001.json new_conventions — src/domain/store_errors.py",
+  "status": "pending" }
+```
 
 ```jsonc
 "rule_proposals": [
