@@ -20,6 +20,10 @@
 - 표면 프리셋 — screens.json surface 가 프리셋 이름이고, 모든 화면이 theme.css 를 걸고, theme.css 는 허용 변수만 바꾸며
   바탕·블록·막대에 브랜드 계열 색을 쓰지 않는다. dark-media 면 tokens.css 가 어두운 토큰(derive.py --mode dark)
 - 데이터 묶음 — layout.md 「데이터 묶음」 표의 묶음을 data-bundle 로 표시한 곳끼리(같은 너비) 항목 순서와 부품이 같다
+- 하한 — 위 검사는 "너무 많은 것"만 막아, 내용이 위쪽 절반에서 끝나고 누를 것도 앱 이름도 없는 화면이 통과했다(시험 2):
+  screens.json app(서비스 이름)이 있고 홈 기본 화면에 보인다 · 홈 기본 화면에 누르는 것이 하나 이상(비활성도 된다) ·
+  데스크톱의 구역 제목(h2)·데이터 묶음이 묶은 모바일 화면에도 있다(data-desktop-only="이유" 는 경고로) ·
+  사진이 주인공인 표면(edge·flat-dense·dark-media)이면 사진이 있는 화면이 있다
 
 사용
 ----
@@ -270,6 +274,83 @@ def check_theme(root: Path, files: list[Path], errors: list[str]) -> None:
             errors.append("dark-media 인데 tokens.css 가 밝은 토큰이다 — derive.py --mode dark 로 만든다")
 
 
+# ── 하한 ──────────────────────────────────────────────────────────────────
+# 시험 2(썰 대회): 읽기 전용 홈 한 장이 측정을 전부 통과했지만 첫 화면 아래 절반이 비고, 누를 것도 서비스 이름도 없었고,
+# 대회 규칙은 데스크톱에만 있었고, 사진이 없는 안내 화면에 SNS 피드 표면(edge)을 써 흰 바탕에 글만 남았다.
+PHOTO_SURFACES = {"edge", "flat-dense", "dark-media"}   # 사진·썸네일이 주인공일 때만 맞는 표면
+PRESS_RE = re.compile(r"<button\b|<a\b[^>]*\b(?:href|data-back|data-stay)\b|\brole\s*=\s*[\"']button"
+                      r"""|\bclass\s*=\s*["'](?:[^"']*\s)?btn(?:\s[^"']*)?["']""", re.I)   # 닫힌 버튼(span.btn.is-closed)도 자리다
+PHOTO_RE = re.compile(r"""\bclass\s*=\s*["'][^"']*\b(?:photo|thumb|photo-grid)\b""", re.I)
+H2_RE = re.compile(r"<h2\b[^>]*>(.*?)</h2>", re.S | re.I)
+DESKTOP_ONLY_RE = re.compile(r"""\bdata-desktop-only\s*=\s*["']([^"']*)["']""", re.I)
+
+
+def _text(html: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html)).strip()
+
+
+def _sections(src: str) -> tuple[set[str], set[str]]:
+    """화면의 구역 제목(h2 글자)과 데이터 묶음 이름. data-desktop-only 로 표시한 구역 안의 것은 뺀다."""
+    p = _BundleParser()
+    try:
+        p.feed(src)
+    except Exception:  # noqa: BLE001
+        pass
+    return {_text(h) for h in H2_RE.findall(src) if _text(h)}, {name for name, _ in p.found}
+
+
+def check_floors(root: Path, m: dict, screens: list[dict], desktop: list[dict],
+                 errors: list[str], warnings: list[str]) -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from sync_kit import mockup_status
+    if mockup_status(root) == "approved":
+        return   # 확정된 시안은 그 시점의 기록 — 나중에 생긴 하한으로 다시 재지 않는다
+    app = (m.get("app") or "").strip()
+    if not app:
+        errors.append("screens.json app(서비스 이름)이 없다 — 링크로 처음 온 사람이 어디인지 알아야 한다")
+    srcs: dict[str, str] = {}
+    for s in screens:
+        f = root / (s.get("file") or f"screens/{s['id']}.html")
+        if f.is_file():
+            srcs[s["id"]] = strip_scripts(f.read_text(encoding="utf-8"))
+    for s in screens:
+        sid, src = s["id"], srcs.get(s["id"])
+        if src is None or "--" in sid or s.get("kind") != "home":
+            continue
+        if app and app not in _text(src):
+            errors.append(f"{sid}: 홈 화면에 서비스 이름({app})이 없다 — 앱 머리나 eyebrow 에 둔다")
+        if not PRESS_RE.search(src):
+            errors.append(f"{sid}: 홈 화면에 누를 것이 없다 — 행동이 다음 요청이면 그 자리를 비활성 버튼으로라도 둔다"
+                          "(예: \"썰 풀기 · 월요일부터\"), 아니면 공유·다음 화면")
+    for d in desktop:
+        f = root / (d.get("file") or f"screens/desktop/{d['id']}.html")
+        if not f.is_file():
+            continue
+        dsrc = strip_scripts(f.read_text(encoding="utf-8"))
+        marked = DESKTOP_ONLY_RE.findall(dsrc)
+        # 표시한 구역은 그 안의 h2·묶음을 비교에서 뺀다 — 표시 요소 하나 단위로 잘라낸다
+        cut = re.sub(r"<(section|div|aside)\b[^>]*\bdata-desktop-only\b[^>]*>.*?</\1>", "", dsrc, flags=re.S | re.I)
+        heads, bundles = _sections(cut)
+        mh: set[str] = set()
+        mb: set[str] = set()
+        for x in d.get("merges") or []:
+            if x in srcs:
+                h, b = _sections(srcs[x])
+                mh |= h
+                mb |= b
+        for h in sorted(heads - mh):
+            errors.append(f"{d['id']}: 데스크톱에만 있는 구역 「{h}」 — 데스크톱은 배치를 바꾸지 내용을 더하지 않는다. "
+                          "모바일에도 넣거나, 정말 데스크톱만의 것이면 data-desktop-only=\"이유\"")
+        for b in sorted(bundles - mb):
+            errors.append(f"{d['id']}: 데스크톱에만 있는 데이터 묶음 {b} — 묶은 모바일 화면에도 있어야 한다")
+        for why in marked:
+            warnings.append(f"{d['id']}: 데스크톱에만 있는 구역 — {why or '(이유 없음)'}")
+    surface = m.get("surface")
+    if surface in PHOTO_SURFACES and srcs and not any(PHOTO_RE.search(x) for x in srcs.values()):
+        errors.append(f"surface {surface} 는 사진·썸네일이 주인공인 표면인데 사진이 있는 화면이 없다 — 흰 바탕에 글만 남는다. "
+                      "표면은 도메인 이름이 아니라 화면에 담기는 것으로 고른다(SKILL.md 「표면 프리셋」)")
+
+
 def run(root: Path) -> tuple[list[str], list[str], str]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -316,6 +397,7 @@ def run(root: Path) -> tuple[list[str], list[str], str]:
     check_bundles(root, files, errors, warnings)
     check_kit(root, errors)
     check_theme(root, files, errors)
+    check_floors(root, m, screens, desktop, errors, warnings)
     return errors, warnings, ""
 
 

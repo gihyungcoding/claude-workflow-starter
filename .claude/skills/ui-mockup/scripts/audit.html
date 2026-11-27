@@ -19,6 +19,9 @@ const LIMITS = {
   primary: 1, line_chars: 80, touch: {375: 44, 1280: 24},
   fill_edge: 1.08,     // 채운 버튼 ↔ 놓인 바탕의 대비 하한 — 같은 색이면 버튼 모양이 사라진다
   brand_area: 0.3,     // 첫 화면에서 브랜드색·브랜드 연한 색 바탕이 덮는 면적 상한
+  // 하한 — 위는 "너무 많은 것"만 막는다. 시험 2: 내용이 첫 화면 위 45% 에서 끝난 홈이 전부 통과했다
+  fold_fill: 0.6,      // 홈·목록 기본 화면: 첫 화면(812px)에서 내용이 이 높이까지는 온다
+  bundle_pills: 1,     // 한 데이터 묶음 안의 알약(배지·칩) 상한 — 같은 사실을 배지·칩으로 두 번 말하던 것
 };
 function sameRGB(a,b){return a&&b&&Math.abs(a.r-b.r)<=3&&Math.abs(a.g-b.g)<=3&&Math.abs(a.b-b.b)<=3;}
 function tokenRGB(doc,win,name){const d=doc.createElement("div");d.style.background=`var(${name})`;doc.body.appendChild(d);const c=parseRGB(win.getComputedStyle(d).backgroundColor);d.remove();return c&&c.a>0.5?c:null;}
@@ -27,7 +30,7 @@ function lum(c){const f=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/
 function ratio(a,b){const l1=lum(a),l2=lum(b);return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);}
 function bgOf(el,win){while(el){const c=parseRGB(win.getComputedStyle(el).backgroundColor);if(c&&c.a>0.5)return c;el=el.parentElement;}return {r:255,g:255,b:255,a:1};}
 
-function measure(doc, win, width) {
+function measure(doc, win, width, job = {}) {
   const visible = e => { const r = e.getBoundingClientRect(), s = win.getComputedStyle(e); return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none"; };
   const all = [...doc.body.querySelectorAll("*")].filter(visible);
   const textEls = all.filter(e => [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
@@ -104,13 +107,31 @@ function measure(doc, win, width) {
     const gap = Math.abs(aside.getBoundingClientRect().top - first.getBoundingClientRect().top);
     if (gap > 8) problems.push(`보조 열과 본문 첫 박스의 시작 높이가 ${Math.round(gap)}px 어긋난다`);
   }
+  // 하한: 내용이 첫 화면 어디까지 오는가 — 글자·그림·누르는 것의 아래 끝(바탕 상자는 세지 않는다)
+  const vh = win.innerHeight;
+  const leaves = all.filter(e => textEls.includes(e) || e.matches("img,svg,.btn,button,input,.photo,.thumb,.badge"));
+  const reach = leaves.reduce((mx, e) => Math.max(mx, Math.min(e.getBoundingClientRect().bottom, vh)), 0) / vh;
+  if (width < 1024 && !job.state && ["home", "list"].includes(job.kind) && reach < LIMITS.fold_fill)
+    problems.push(`내용이 첫 화면의 ${Math.round(reach * 100)}% 에서 끝난다 — ${LIMITS.fold_fill * 100}% 이상 (아래가 비었다)`);
+  // 한 데이터 묶음 안의 알약 — 채운 바탕의 한 줄짜리 둥근 딱지(배지 10px·칩 999px 둘 다), 버튼은 빼고
+  for (const b of doc.querySelectorAll("[data-bundle]")) {
+    const pills = [...b.querySelectorAll("*")].filter(e => {
+      if (!visible(e) || e.matches(".btn, button")) return false;
+      const s = win.getComputedStyle(e), r = e.getBoundingClientRect(), c = parseRGB(s.backgroundColor);
+      return c && c.a > 0.5 && r.height <= 36 && r.width <= win.innerWidth * 0.6
+        && parseFloat(s.borderTopLeftRadius) >= Math.min(8, r.height / 2 - 1) && e.textContent.trim()
+        && !sameRGB(c, bgOf(e.parentElement, win));
+    }).filter((e, _, xs) => !xs.some(o => o !== e && o.contains(e)));   // 알약 안의 알약은 하나로
+    if (pills.length > LIMITS.bundle_pills)
+      problems.push(`묶음 ${b.dataset.bundle} 에 알약이 ${pills.length}개 — "${pills.map(e => e.textContent.trim().slice(0, 8)).join('" · "')}" 같은 사실을 두 번 말하는지 보고 한 덩어리로`);
+  }
   const primaries = doc.querySelectorAll(".btn.primary").length;
   const h1 = doc.querySelectorAll("h1").length;
   const overflow = doc.documentElement.scrollWidth > win.innerWidth + 1;
   const m = {
     font_sizes: sizes.size, font_weights: weights.size, font_families: fams.size, min_font: minFont,
     radii: radii.size, shadows: shadows.size, spacing_4x: sp ? +(sp4 / sp).toFixed(2) : 1,
-    primary: primaries, h1, overflow, brand_area: typeof brandShare === "number" ? brandShare : null,
+    primary: primaries, h1, overflow, fold_fill: +reach.toFixed(2), brand_area: typeof brandShare === "number" ? brandShare : null,
   };
   if (h1 !== 1) problems.push(`h1 이 ${h1}개`);
   if (primaries > LIMITS.primary) problems.push(`주 버튼이 ${primaries}개`);
@@ -128,7 +149,7 @@ function measure(doc, win, width) {
 async function run() {
   const m = await (await fetch("screens.json?" + Date.now())).json();
   const jobs = [
-    ...(m.screens || []).map(s => ({ id: s.id, file: s.file || `screens/${s.id}.html`, width: 375 })),
+    ...(m.screens || []).map(s => ({ id: s.id, file: s.file || `screens/${s.id}.html`, width: 375, kind: s.kind, state: s.id.includes("--") })),
     ...(m.desktop || []).map(d => ({ id: d.id, file: d.file || `screens/desktop/${d.id}.html`, width: 1280 })),
   ];
   const result = { measured_at: new Date().toISOString(), screens: {}, failed: [] };
@@ -139,7 +160,7 @@ async function run() {
     await new Promise(r => { f.onload = r; f.onerror = r; });
     try { await f.contentDocument.fonts.ready; } catch (e) {}
     await new Promise(r => setTimeout(r, 200));
-    try { result.screens[j.id] = { width: j.width, ...measure(f.contentDocument, f.contentWindow, j.width) }; }
+    try { result.screens[j.id] = { width: j.width, ...measure(f.contentDocument, f.contentWindow, j.width, j) }; }
     catch (e) { result.screens[j.id] = { width: j.width, problems: ["읽을 수 없음: " + e] }; }
     if (result.screens[j.id].problems.length) result.failed.push(j.id);
     f.remove();
