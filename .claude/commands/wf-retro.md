@@ -11,7 +11,12 @@ Phase 5 는 회고 초안을 쓰고 **승인을 기다리지 않고** 태스크�
 ```bash
 python3 scripts/wf_status.py --retros
 python3 scripts/wf_status.py --proposals
+python3 scripts/verify_convergence.py                  # Phase 4 가 수렴하는가 — 라운드·later 추세
 ```
+
+`verify_convergence.py` 의 FAIL 라운드 평균과 later 평균을 승인 요약 맨 앞에 보인다. 실패 유형 카탈로그
+(`docs/architecture/failure-modes.md`) 제안을 승인할지 정하는 근거다 — 카탈로그가 자라는데 later 가 줄지 않으면
+칸이 너무 좁거나(입력 하나를 적었다) 2a 가 `n/a` 로 닫고 있다는 뜻이다.
 
 - 대기 회고가 없으면 그렇게 말하고 끝낸다
 - `approved_by_human` 은 `AskUserQuestion` 응답을 받은 뒤에만 쓴다 (절대 규칙 1)

@@ -12,6 +12,7 @@
 ---------------
     constraints   docs/architecture/constraints.yaml
     conventions   docs/architecture/conventions.md (코딩 규칙 정본)
+    failure-modes docs/architecture/failure-modes.md (실패 유형 카탈로그 — RETRY_FIX 의 근거·2a 의 칸)
     gate-config   린트·타입·포맷 설정 (eslint, oxlint, stylelint, tsconfig, prettier, biome,
                   ruff, mypy, checkstyle, .editorconfig, dependency-cruiser, importlinter,
                   .pre-commit-config.yaml)
@@ -66,6 +67,8 @@ GUARDED_PHASES = {"3", "4"}
 
 #: 코딩 규칙 정본. 린트 설정으로 옮기지 못한 규칙(배치·이름·에러 형식)이 여기 산문으로 남는다.
 CONVENTIONS_REL = "docs/architecture/conventions.md"
+#: 실패 유형 카탈로그 — RETRY_FIX 의 근거가 될 수 있어, Phase 3·4 중에 고쳐 근거를 만드는 것을 사람이 본다
+FAILURE_MODES_REL = "docs/architecture/failure-modes.md"
 
 #: 린트·타입·포맷 설정. 파일명(basename) 기준 glob.
 GATE_CONFIG_PATTERNS = (
@@ -156,6 +159,9 @@ def classify(rel: str, tasks: list[dict]) -> tuple[str, dict] | None:
     if path_key(rel) == path_key(CONVENTIONS_REL):
         return "conventions", tasks[0]
 
+    if path_key(rel) == path_key(FAILURE_MODES_REL):
+        return "failure-modes", tasks[0]
+
     if matches_gate_config(rel.rsplit("/", 1)[-1]):
         return "gate-config", tasks[0]
 
@@ -178,6 +184,12 @@ def reason_for(kind: str, rel: str, task: dict) -> str:
             f"코딩 규칙 문서 수정: {rel}\n"
             f"  {where}. 구현·검증 중에 규칙을 바꾸면 위반을 고치지 않고 통과시킬 수 있다.\n"
             "  규칙이 틀렸다면 회고(Phase 5)에서 제안한다. 위반을 피하려는 수정이면 코드를 고친다."
+        )
+    if kind == "failure-modes":
+        return (
+            f"실패 유형 카탈로그 수정: {rel}\n"
+            f"  {where}. 구현·검증 중에 칸을 고치면 RETRY_FIX 의 근거를 스스로 만들거나 2a 의 칸을 줄일 수 있다.\n"
+            "  카탈로그는 회고(Phase 5)의 제안을 /wf-retro 에서 사람이 승인해 더한다."
         )
     if kind == "gate-config":
         return (

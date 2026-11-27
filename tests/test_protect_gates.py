@@ -100,6 +100,11 @@ class ProtectGatesTest(ProjectTestCase):
         self.project.write("docs/architecture/conventions.md", "x\n")
         self.assertAsks("docs/architecture/conventions.md", "코딩 규칙", "Phase 3")
 
+    def test_failure_mode_catalog_edit_asks_during_phase_3(self):
+        self.task("TASK-001", phase="3")
+        self.project.write("docs/architecture/failure-modes.md", "x\n")
+        self.assertAsks("docs/architecture/failure-modes.md", "실패 유형 카탈로그", "RETRY_FIX")
+
     def test_conventions_edit_outside_guarded_phase_is_silent(self):
         self.task("TASK-001", phase="1")
         self.project.write("docs/architecture/conventions.md", "x\n")

@@ -17,7 +17,8 @@ Plan의 `flows` 를 **검증 가능한 Given/When/Then**으로 옮긴다. 이 �
 2. 모든 `acceptance_criteria` 를 시나리오가 덮는다
 3. **PLAN 이 정한 입력 경계 칸을 전부 판정한다** — `coverage_matrix.py` 가 PLAN 의
    `design.input_fields` 에서 칸을 펼친다. 칸마다 `covered`(SC-ID) 또는 `n/a`(사유). 길이 상한 +1,
-   null 원소, 소수는 Phase 4 가 찾을 일이 아니라 여기서 쓸 일이다 (→ `references/coverage-policy.md` §2-1)
+   null 원소, 소수는 Phase 4 가 찾을 일이 아니라 여기서 쓸 일이다 (→ `references/coverage-policy.md` §2-1).
+   **PLAN `design.surfaces` 의 노출면 칸(`fm:…`)도 같은 행렬에서 판정한다** — 칸은 `docs/architecture/failure-modes.md` 가 정한다
 4. `SCENARIO_<ID>.md` 를 SoT로 쓴다. JSON은 MD에서 파생시킨다
 5. **독립검증자 서브에이전트**를 호출한다 (`scenario-validator`)
 6. 검증자 응답을 `VALIDATION_<ID>.json` 에 **가공 없이 그대로** 저장한다
@@ -151,6 +152,9 @@ python3 scripts/coverage_matrix.py --task-id TASK-001              # exit 0 이 
   하나의 표로 묶는다 (→ `coverage-policy.md` 「개수를 불리지 않는 법」)
 - 해당하지 않는 칸은 `n/a` 와 **PLAN 에 근거한 사유**로 닫는다 (예: 「PLAN constraints — 서버 400 에
   맡긴다」). 근거 없는 `n/a` 는 검증자가 FAIL 로 돌려보낸다
+- **노출면 칸(`fm:<id>:<노출면>.<칸>`)** 은 카탈로그의 "무엇을 확인하나" 가 기대 결과다. 그대로 Then 에 쓴다.
+  이 경로에서 정말 생길 수 없으면 `n/a` 와 그 이유(예: 「이 처리기는 GET 만 등록되지 않는다 — 405 는 프레임워크 기본 처리, 기존
+  SC-04 가 덮는다」). **"원래 있던 동작이라서" 는 n/a 사유가 아니다** — 이 태스크가 그 경로를 열었다면 이 태스크의 것이다
 - **칸이 없어서 못 덮는 경계를 발견하면** — 필드나 종류가 PLAN 에서 빠진 것이다. `input_fields` 를
   고치고 `check_plan.py` 를 다시 돌린다. 분류 보완은 설계 변경이 아니므로 `ROLLBACK_PLAN` 으로 세지
   않되, `CP-2.2` 의 `decisions` 에 무엇을 더했는지 적는다

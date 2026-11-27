@@ -40,6 +40,7 @@
 - `workflow_design/04_plan/PLAN_<ID>.json` 존재, JSON 파싱 성공
 - `design.inputs`, `design.outputs`, `design.flows` 모두 비어 있지 않음
 - `design.input_fields` 가 있음 — 필드마다 `flows`·`kinds` (입력이 없으면 `[]` + 사유)
+- `design.surfaces` 가 있음 — 이 태스크가 여는 노출면(`docs/architecture/failure-modes.md` 가 있을 때. 없으면 `[]` + 사유)
 - `route ∈ {Backend, Frontend, Database}`
 - **`check_plan.py` exit 0** — 기존 파일은 실재, 새 파일은 `new: true` 이고 아직 없음,
   `reusable`·`existing_tests` 실재. 조사 결과를 요약으로 받았어도 이것으로 확인한다
@@ -286,6 +287,29 @@ python3 scripts/coverage_matrix.py --kinds        # 고를 수 있는 종류와 
 - 입력이 없는 태스크는 `"input_fields": []` 와 `"input_fields_none_reason"` 을 적는다
 
 `check_plan.py` 가 종류 이름·흐름 ID 를 확인한다.
+
+#### 여는 노출면 — `design.surfaces` (카탈로그가 있으면 필수)
+
+입력 필드가 아니라 **이 태스크가 새로 열거나 바꾸는 코드 경로**의 실패 유형. 새 HTTP 경로·정적 서빙·넓은 catch·
+같은 규칙을 여러 곳에서 판정·외부 호출·동시 갱신·배포 순서·시안 옮기기. 칸은 프로젝트의 `docs/architecture/failure-modes.md` 가
+정하고 2a 가 칸마다 시나리오나 이유를 적는다. **Phase 4 리뷰어가 구현 뒤에 찾던 것을 구현 전에 정하는 자리다** — ssirleague
+TASK-004 는 정적 서빙을 열고 405 → 415·400 → Range 416 → 커밋된 응답 순으로 Phase 4 를 4번 돌았다.
+
+```bash
+python3 scripts/coverage_matrix.py --surfaces     # 카탈로그의 노출면과 칸
+```
+
+```jsonc
+"surfaces": [
+  { "id": "spa",   "surface": "http_error_path", "where": "정적 리소스 처리기 · SpaFallbackController" },
+  { "id": "spa-s", "surface": "static_serving",  "where": "/assets/** · index.html 폴백" }
+]
+```
+
+- 같은 노출면이 두 곳이면 `id` 를 달리해 두 번 적는다 — 칸이 곳마다 생긴다
+- **해당할 수 있으면 고른다.** 아닌 칸은 2a 에서 `n/a` + 사유로 닫는다. 고르지 않으면 칸이 생기지 않는다
+- 맞는 노출면이 카탈로그에 없으면 가장 가까운 것을 고르고, 회고에서 카탈로그에 더하자고 제안한다
+- 여는 노출면이 없으면 `"surfaces": []` 와 `"surfaces_none_reason"`
 
 
 ### Step 5 — 저장

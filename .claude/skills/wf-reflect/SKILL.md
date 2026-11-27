@@ -152,8 +152,29 @@ KPT 는 `REFLECT_<ID>.json` 에 들어가므로 따로 저장하지 않는다.
 #### 3-3. 워크플로우·프로젝트 규칙 개선
 
 `docs/workflow/`, `.claude/skills/` 를 고쳐야 하는 것, 그리고 **프로젝트 규칙 파일** —
-`docs/architecture/conventions.md`, `docs/architecture/constraints.yaml`, 린트·포맷 설정 파일
+`docs/architecture/conventions.md`, `docs/architecture/constraints.yaml`, `docs/architecture/failure-modes.md`, 린트·포맷 설정 파일
 (`ruff.toml`·`.eslintrc.*`·`.editorconfig` 같은 것) — 을 고쳐야 하는 것. 둘 다 `target` 이 된다.
+
+**Phase 4 의 `later` 변종과 후속 태스크로 넘긴 변종은 실패 유형 카탈로그 제안으로 옮긴다.** 첫 라운드에 찾았어야 했거나
+이 태스크의 범위 밖이던 것이다 — 카탈로그에 칸이 생기면 다음 태스크의 2a 가 처음부터 덮는다. 이것이 Phase 4 반복을 줄이는
+자기 개선 루프의 입력이다.
+
+```bash
+python3 scripts/verify_convergence.py --candidates     # 이 태스크의 later·넘긴 변종 중 카탈로그에 아직 없는 것
+```
+
+뿌리가 같은 변종은 **한 칸으로 일반화**한다(입력 하나가 아니라 "무엇을 확인하나"). 기존 노출면에 맞으면 그 표에 행을,
+아니면 새 노출면을 제안한다. 이 태스크에만 있던 일이면 제안하지 않고 이유를 `notes` 에 적는다.
+
+```jsonc
+{ "target": "docs/architecture/failure-modes.md",
+  "section": "static_serving",
+  "change": "| `cache_on_error` | 정적 처리기가 붙인 장기 캐시 헤더가 오류 응답에 남지 않는다 | TASK-004 RC-3 |",
+  "evidence": "VERIFY_TASK-004.json RC-3 later — /assets/** 416 에 immutable 캐시 헤더",
+  "status": "pending" }
+```
+
+출처 열에 `TASK-NNN RC-n` 을 그대로 적는다 — `verify_convergence.py` 가 그것으로 이미 반영한 후보를 거른다.
 
 **`DEV_<ID>.json` 의 `new_conventions` 는 빠짐없이 `rule_proposals` 로 옮긴다.**
 항목마다 `target: "docs/architecture/conventions.md"`, `section` 에 항목 id(`C-…` 또는 새 이름),

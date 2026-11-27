@@ -40,7 +40,7 @@ model: sonnet
 | V8 | **입출력 대응** | 시나리오가 다루는 입력·출력이 Plan의 `design.inputs`/`outputs` 범위 안인가. 밖이면 Plan이 불완전하거나 시나리오가 범위를 넘은 것 |
 | V9 | **중복** | 같은 코드 경로만 타는 시나리오가 둘 이상인가 |
 | V10 | **회귀 누락** | 기존 동작을 바꾸는 태스크인데 `regression` 시나리오가 없는가 (Plan의 `target_files` 가 기존 파일 수정이면 해당) |
-| V11 | **입력 경계 판정** | SCENARIO json 의 `coverage_matrix` 판정이 **맞는가**. 칸 목록은 PLAN 의 `design.input_fields` 에서 기계가 만들었고 빠진 칸은 게이트가 이미 셌다 — 당신은 칸을 새로 찾지 않는다. 아래 「V11 판정」 |
+| V11 | **입력 경계 판정** | SCENARIO json 의 `coverage_matrix` 판정이 **맞는가**. 칸 목록은 PLAN 의 `design.input_fields` 와 `design.surfaces`(노출면 칸 `fm:…` — `docs/architecture/failure-modes.md`)에서 기계가 만들었고 빠진 칸은 게이트가 이미 셌다 — 당신은 칸을 새로 찾지 않는다. 아래 「V11 판정」 |
 | V12 | **목록 밖 경계 제안** | 칸 목록(§2-1)에 없지만 이 태스크에서 깨질 법한 경계. **항상 warn** — 사람이 HITL 에서 판단한다 |
 
 ### V11 판정

@@ -17,6 +17,7 @@
 -----------
 - PLAN 존재, 파싱, design.inputs/outputs/flows 가 비어 있지 않음, route 값
 - design.input_fields — 필드마다 flows·kinds 가 있고 kind 가 coverage_matrix.KINDS 안에 있음
+- design.surfaces — 실패 유형 카탈로그(docs/architecture/failure-modes.md)가 있으면, 이 태스크가 여는 노출면이 카탈로그에 있음
   (Phase 2a 가 덮을 입력 경계 칸이 여기서 정해진다)
 - target_files: 경로가 하나이고 구체적이다 · 새 파일이 아니면 실재 · 새 파일이면 아직 없음
 - reusable · existing_tests: 실재 (재사용하겠다는 것이 없는 파일이면 안 된다)
@@ -51,7 +52,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from coverage_matrix import required_cells  # noqa: E402
+from coverage_matrix import load_catalog, required_cells, surface_cells  # noqa: E402
 from _utils import (  # noqa: E402
     artifact_path,
     docs_root,
@@ -130,6 +131,7 @@ def check(task_id: str) -> tuple[list[str], list[str], dict]:
     # 입력 경계 행렬의 출발점 — Phase 2a 가 덮을 칸이 여기서 정해진다 (coverage_matrix.py)
     _, field_problems = required_cells(plan)
     problems.extend(field_problems)
+    problems.extend(surface_cells(plan, load_catalog())[1])
 
     ca = plan.get("codebase_analysis") or {}
     stats["exploration"] = (ca.get("exploration") or {}).get("method")
