@@ -17,6 +17,12 @@ UNIQUE 위반으로 취급하는 catch" 가 뿌리였다. 증상 하나를 고�
 - `root_causes` 의 구조 (id, 요약, 변종 목록 또는 변종이 없는 사유, 변종마다 출처·프로브 결과)
 - FAIL 이면 `root_causes` 가 비어 있지 않다 — 결함이 있다는 판정에 뿌리가 없을 수 없다
 - FAIL 이 아니면 **재현된 변종은 모두 해소(resolved)** 되어 있고 근거가 있다
+- **이 변경이 만든 결함만 막는다.** 변종마다 `scope` — `diff`(이 변경이 만들었거나 완료 조건을 깬다, 기본값) ·
+  `pre_existing`(기준 브랜치에서도 재현된다) · `hardening`(어느 완료 조건에도 없는 불변식 강화). diff 가 아닌 재현 변종은
+  `deferred_to`(tasks.json 에 실제로 있는 다른 태스크) · `deferred_reason` · `scope_evidence` 를 갖추면 후속 태스크로 넘길
+  수 있고, 그때 판정은 WARN 이다(사람이 HITL#3 에서 본다). ssirleague TASK-004 는 넓은 불변식("모든 오류 응답이 우리
+  형식")을 기준으로 리뷰가 라운드마다 원래 있던 변종을 새로 찾아 Phase 4 를 4번 돌았고, 2라운드에 사람이 분리를
+  골랐는데 이 게이트가 막았다
 - 이전에 커밋된 VERIFY 에 있던 뿌리·변종이 지금 파일에서 **사라지지 않았다** —
   불리한 항목을 지워 PASS 로 가는 길을 막는다
 - **이전 라운드에서 `not_probed` 였던 변종은 이번 라운드에 프로브되어 있다.** 프로브하지
@@ -73,6 +79,7 @@ from _utils import (  # noqa: E402
     repo_root,
     source_changed_between,
     task_id_error,
+    tasks_json_path,
 )
 
 RC_ID_RE = re.compile(r"^RC-\d+$")
@@ -87,6 +94,12 @@ ORIGINS = ("found", "predicted", "later")
 #: not_probed     프로브하지 못했다 (사유 필수)
 PROBES = ("reproduced", "not_reproduced", "not_probed")
 
+#: diff         이 변경이 만들었거나 완료 조건을 깬다 — 이 태스크에서 고친다 (기본값)
+#: pre_existing 기준 브랜치에서도 재현된다 — 이 변경이 만들지 않았다
+#: hardening    어느 완료 조건에도 없는 불변식 강화 — 맞는 말이지만 이 태스크의 약속이 아니다
+SCOPES = ("diff", "pre_existing", "hardening")
+TASK_ID_RE = re.compile(r"^TASK-\d{3,}$")
+
 #: 테스트 식별자 — `클래스#메서드` 또는 테스트 파일 경로. TASK-009 는 HTTP 프로브 문자열만으로
 #: not_reproduced 를 통과했고, 그 변종을 지키는 자동 테스트는 끝내 생기지 않았다.
 TEST_REF_RE = re.compile(
@@ -99,8 +112,27 @@ def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
-def validate_record(data: dict) -> tuple[list[str], dict]:
-    """VERIFY 한 건의 root_causes 를 검사한다. (위반 목록, 집계)"""
+def scope_of(v: dict) -> object:
+    """변종의 범위. 적지 않으면 diff. 예전 표기 pre_existing: true 도 받는다(ssirleague 에서 먼저 쓴 형식)."""
+    if "scope" in v:
+        return v.get("scope")
+    return "pre_existing" if v.get("pre_existing") is True else "diff"
+
+
+def known_task_ids() -> set[str] | None:
+    """tasks.json 의 태스크 ID. 읽을 수 없으면 None."""
+    data, _ = load_json(tasks_json_path())
+    rows = data.get("tasks") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        return None
+    return {t.get("id") for t in rows if isinstance(t, dict) and isinstance(t.get("id"), str)}
+
+
+def validate_record(data: dict, tasks: set[str] | None = None) -> tuple[list[str], dict]:
+    """VERIFY 한 건의 root_causes 를 검사한다. (위반 목록, 집계)
+
+    tasks — 이관 대상이 실제로 있는지 볼 태스크 ID 집합. None 이면 tasks.json 을 읽을 수 없다는 뜻이다.
+    """
     problems: list[str] = []
     stats = {
         "root_causes": 0,
@@ -108,6 +140,8 @@ def validate_record(data: dict) -> tuple[list[str], dict]:
         "by_origin": {o: 0 for o in ORIGINS},
         "reproduced": 0,
         "unresolved_reproduced": 0,
+        "deferred": 0,
+        "by_scope": {s: 0 for s in SCOPES},
         "not_probed": 0,
     }
     status = data.get("status")
@@ -190,17 +224,67 @@ def validate_record(data: dict) -> tuple[list[str], dict]:
             if resolved is True and not _text(v.get("evidence")):
                 problems.append(f"{vw}: resolved 인데 evidence 가 없다 — 어떤 테스트가 이것을 막는지 적는다")
 
+            scope = scope_of(v)
+            if scope not in SCOPES:
+                problems.append(f"{vw}: scope 는 {list(SCOPES)} 중 하나여야 한다: {scope!r}")
+                scope = "diff"
+            stats["by_scope"][scope] += 1
+            deferred_ok = _deferral_problems(v, vw, scope, data.get("task_id"), tasks, problems)
+
             if probe == "reproduced":
                 stats["reproduced"] += 1
-                if resolved is not True:
+                if resolved is not True and deferred_ok:
+                    stats["deferred"] += 1
+                elif resolved is not True:
                     stats["unresolved_reproduced"] += 1
                     # FAIL 은 아직 고치기 전이라 정상이다. 그 밖의 판정은 안 된다.
                     if status != "FAIL":
                         problems.append(
                             f"{vw}: 재현된 변종이 해소되지 않았다 — {case!r}. "
                             "고치고 resolved: true 와 evidence 를 적거나, status 를 FAIL 로 둔다"
+                            + ("" if scope == "diff" else
+                               ". 이 변경이 만들지 않은 것이면 deferred_to·deferred_reason·scope_evidence 로 넘긴다")
                         )
+    if stats["deferred"] and status == "PASS":
+        problems.append(
+            f"후속 태스크로 넘긴 변종이 {stats['deferred']}건인데 status 가 PASS 다 — WARN 으로 두고 HITL#3 에서 "
+            "사람이 넘김을 본다"
+        )
     return problems, stats
+
+
+def _deferral_problems(v: dict, vw: str, scope: str, task_id: object, tasks: set[str] | None,
+                       problems: list[str]) -> bool:
+    """후속 태스크로 넘김이 갖춰졌나. 갖춰졌으면 True. 넘기지 않은 변종이면 False(문제 없음)."""
+    target = v.get("deferred_to")
+    if target is None:
+        if scope != "diff" and not _text(v.get("scope_evidence")):
+            problems.append(f"{vw}: scope 가 {scope} 이면 scope_evidence 에 근거를 적는다 — "
+                            "pre_existing 은 기준 브랜치에서 재현한 방법, hardening 은 어느 완료 조건에도 없는 이유")
+        return False
+    ok = True
+    if scope == "diff":
+        problems.append(f"{vw}: 이 변경이 만든 결함(scope: diff)은 넘기지 않는다 — 이 태스크에서 고친다")
+        ok = False
+    if not (isinstance(target, str) and TASK_ID_RE.match(target)):
+        problems.append(f"{vw}: deferred_to 는 TASK-NNN 형식이어야 한다: {target!r}")
+        return False
+    if target == task_id:
+        problems.append(f"{vw}: deferred_to 가 이 태스크 자신이다 — 다른 후속 태스크로 넘긴다")
+        ok = False
+    elif tasks is None:
+        problems.append(f"{vw}: tasks.json 을 읽을 수 없어 deferred_to {target} 가 있는지 모른다")
+        ok = False
+    elif target not in tasks:
+        problems.append(f"{vw}: deferred_to {target} 가 tasks.json 에 없다 — 후속 태스크를 먼저 만든다(/wf-task-new). "
+                        "적어만 둔 이관은 아무도 하지 않는다")
+        ok = False
+    for field, what in (("deferred_reason", "왜 이 태스크에서 고치지 않는지"),
+                        ("scope_evidence", "범위 판단의 근거")):
+        if not _text(v.get(field)):
+            problems.append(f"{vw}: 넘기려면 {field} 에 {what}를 적는다")
+            ok = False
+    return ok
 
 
 def _git(*args: str) -> str | None:
@@ -348,7 +432,7 @@ def main() -> int:
         print(f"VERIFY 를 읽을 수 없다: {err or '객체가 아니다'}", file=sys.stderr)
         return 2
 
-    problems, stats = validate_record(data)
+    problems, stats = validate_record(data, known_task_ids())
     problems += carried_forward_problems(data, earlier_records(path))
     problems += unprobed_followup_problems(data, previous_round_unprobed(path))
     status = data.get("status")
@@ -380,6 +464,11 @@ def main() -> int:
             )
         if stats["not_probed"]:
             print(f"  ⚠ 프로브하지 못한 변종 {stats['not_probed']}건 — 재현 여부를 모르는 채다")
+        if stats["deferred"]:
+            print(
+                f"  ⚠ 이 변경이 만들지 않은 변종 {stats['deferred']}건을 후속 태스크로 넘겼다 — "
+                "범위 판단(scope)은 주장이다. HITL#3 에서 사람이 scope_evidence 를 본다"
+            )
     print()
     print(f"{len(problems)}건 위반" if problems else "기록에 문제 없음")
     return 1 if problems else 0
