@@ -216,6 +216,88 @@ class RootCausesTest(ProjectTestCase):
         self.assertEqual(out.returncode, 2)
 
 
+class ScopeTriageTest(ProjectTestCase):
+    """이 변경이 만든 결함만 막는다 — 원래 있던 것·불변식 강화는 실제 후속 태스크로 넘기면 WARN 으로 통과
+    (ssirleague TASK-004: 넓은 불변식을 기준으로 4라운드, 2라운드의 분리 선택을 게이트가 막았다)"""
+
+    FOLLOW = "TASK-002"
+    verify = RootCausesTest.verify
+    check = RootCausesTest.check
+    assertOk = RootCausesTest.assertOk
+    assertViolation = RootCausesTest.assertViolation
+
+    def setUp(self):
+        super().setUp()
+        self.project.write_json("workflow_design/02_tasks/tasks.json", [{"id": TID}, {"id": self.FOLLOW}])
+
+    def deferred(self, case=CASE_B, scope="pre_existing", **extra):
+        fields = {"scope": scope, "deferred_to": self.FOLLOW, "deferred_reason": "오류 형식 전체 정리는 별도",
+                  "scope_evidence": "main 에서 같은 요청으로 재현"}
+        fields.update(extra)
+        return variant(case, "later", **fields)
+
+    def resolved_a(self):
+        return variant(CASE_A, resolved=True, evidence="AuthServiceTest#longEmail")
+
+    def test_deferred_pre_existing_variant_passes_as_warn(self):
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), self.deferred()])])
+        out = self.check()
+        self.assertOk(out)
+        self.assertIn("후속 태스크로 넘겼다", out.stdout)
+
+    def test_hardening_can_be_deferred_too(self):
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), self.deferred(scope="hardening")])])
+        self.assertOk()
+
+    def test_deferral_requires_warn_not_pass(self):
+        self.verify("PASS", [root_cause(variants=[self.resolved_a(), self.deferred()])])
+        self.assertViolation("WARN 으로 두고")
+
+    def test_diff_scope_cannot_be_deferred(self):
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), self.deferred(scope="diff")])])
+        self.assertViolation("넘기지 않는다")
+
+    def test_default_scope_is_diff(self):
+        v = self.deferred()
+        del v["scope"]
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), v])])
+        self.assertViolation("넘기지 않는다")
+
+    def test_legacy_pre_existing_flag_is_accepted(self):
+        v = self.deferred()
+        del v["scope"]
+        v["pre_existing"] = True
+        del v["scope_evidence"]   # 예전 형식은 deferred_reason 만 적었다 (ssirleague TASK-004)
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), v])])
+        self.assertOk()
+
+    def test_target_task_must_exist(self):
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), self.deferred(deferred_to="TASK-099")])])
+        self.assertViolation("tasks.json 에 없다")
+
+    def test_cannot_defer_to_itself(self):
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), self.deferred(deferred_to=TID)])])
+        self.assertViolation("이 태스크 자신")
+
+    def test_deferral_needs_reason_and_evidence(self):
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), self.deferred(deferred_reason="", scope_evidence="")])])
+        self.assertViolation("deferred_reason", "scope_evidence")
+
+    def test_non_diff_scope_needs_evidence_even_when_fixed(self):
+        v = variant(CASE_B, scope="hardening", resolved=True, evidence="AuthServiceTest#nul")
+        self.verify("PASS", [root_cause(variants=[self.resolved_a(), v])])
+        self.assertViolation("scope_evidence")
+
+    def test_unknown_scope_is_a_violation(self):
+        self.verify("FAIL", [root_cause(variants=[variant(CASE_A, scope="maybe")])])
+        self.assertViolation("scope 는")
+
+    def test_undeferred_pre_existing_still_blocks_with_hint(self):
+        v = variant(CASE_B, scope="pre_existing", scope_evidence="main 에서 재현")
+        self.verify("WARN", [root_cause(variants=[self.resolved_a(), v])])
+        self.assertViolation("해소되지 않았다", "deferred_to")
+
+
 class CarriedForwardTest(ProjectTestCase):
     """이전 라운드에 기록된 뿌리·변종을 지워서 PASS 로 가는 길을 막는다."""
 
@@ -438,7 +520,7 @@ class DocExamplesTest(unittest.TestCase):
 
     def test_the_documented_schema_values_match_the_validator(self):
         text = self.read(".claude/skills/wf-verify/references/root-cause-sweep.md")
-        for value in (*check_root_causes.ORIGINS, *check_root_causes.PROBES):
+        for value in (*check_root_causes.ORIGINS, *check_root_causes.PROBES, *check_root_causes.SCOPES):
             self.assertIn(value, text, f"검증기가 받는 값 {value!r} 이 문서에 없다")
 
     def test_every_doc_that_points_at_the_sweep_points_at_an_existing_file(self):

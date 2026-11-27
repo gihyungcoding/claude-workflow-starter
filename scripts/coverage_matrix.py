@@ -24,6 +24,18 @@ Phase 2a 재시도의 대부분이 독립검증 V11(입력 경계값) FAIL 이�
 
 입력이 없는 태스크는 `"input_fields": []` 와 `"input_fields_none_reason"` 을 적는다.
 
+입력 — PLAN `design.surfaces` (실패 유형 카탈로그가 있을 때)
+-----------------------------------------------------------
+입력 필드가 아니라 **이 태스크가 여는 노출면**(새 HTTP 경로·정적 서빙·넓은 catch·외부 호출…)의 칸.
+칸 목록은 프로젝트의 `docs/architecture/failure-modes.md` 가 정한다 — Phase 4 의 뒤늦은 변종(later)을 회고가 더해 자란다.
+
+    "surfaces": [
+      { "id": "spa", "surface": "http_error_path", "where": "정적 리소스·SPA 폴백 컨트롤러" }
+    ]
+
+칸 이름은 `fm:<id>:<surface>.<칸>`. 여는 노출면이 없으면 `"surfaces": []` 와 `"surfaces_none_reason"`.
+카탈로그 파일이 없는 프로젝트에서는 보지 않는다.
+
 출력 — SCENARIO json `coverage_matrix`
 -------------------------------------
     "coverage_matrix": [
@@ -35,6 +47,7 @@ Phase 2a 재시도의 대부분이 독립검증 V11(입력 경계값) FAIL 이�
 사용
 ----
     python3 scripts/coverage_matrix.py --kinds                     # 고를 수 있는 종류와 칸
+    python3 scripts/coverage_matrix.py --surfaces                  # 카탈로그의 노출면과 칸
     python3 scripts/coverage_matrix.py --task-id TASK-001          # 칸별 상태
     python3 scripts/coverage_matrix.py --task-id TASK-001 --skeleton   # coverage_matrix 초안 JSON
     python3 scripts/coverage_matrix.py --task-id TASK-001 --json
@@ -62,7 +75,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _utils import artifact_path, is_valid_task_id, load_json, task_id_error  # noqa: E402
+from _utils import artifact_path, is_valid_task_id, load_json, repo_root, task_id_error  # noqa: E402
 
 #: 종류 → (칸 ID, 설명). coverage-policy.md §2-1 의 행과 같은 순서로 둔다.
 KINDS: dict[str, tuple[str, list[tuple[str, str]]]] = {
@@ -185,6 +198,66 @@ def policy_drift() -> list[str]:
             + [f"KINDS 에 없는 표 행: {k}" for k in sorted(in_table - set(KINDS))])
 
 
+CATALOG_REL = "docs/architecture/failure-modes.md"
+SURFACE_HEAD_RE = re.compile(r"^##\s+`([a-z][a-z0-9_]*)`\s*[—-]\s*(.+)$", re.M)
+SURFACE_ROW_RE = re.compile(r"^\|\s*`([a-z0-9_]+)`\s*\|\s*([^|]+?)\s*\|", re.M)
+SURFACE_ID_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
+
+
+def load_catalog(path: Path | None = None) -> dict[str, tuple[str, list[tuple[str, str]]]] | None:
+    """실패 유형 카탈로그 → {노출면: (설명, [(칸, 무엇)])}. 파일이 없으면 None."""
+    path = path or repo_root() / CATALOG_REL
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8")
+    heads = list(SURFACE_HEAD_RE.finditer(text))
+    out: dict[str, tuple[str, list[tuple[str, str]]]] = {}
+    for i, h in enumerate(heads):
+        body = text[h.end():heads[i + 1].start() if i + 1 < len(heads) else len(text)]
+        out[h.group(1)] = (h.group(2).strip(), SURFACE_ROW_RE.findall(body))
+    return out
+
+
+def surface_cells(plan: dict, catalog: dict | None) -> tuple[list[dict], list[str]]:
+    """PLAN 의 surfaces 를 카탈로그 칸으로 펼친다. 카탈로그가 없으면 아무것도 요구하지 않는다."""
+    if catalog is None:
+        return [], []
+    design = plan.get("design") or {}
+    if "surfaces" not in design:
+        return [], [f"PLAN design.surfaces 가 없다 — 이 태스크가 여는 노출면을 {CATALOG_REL} 에서 고른다 "
+                    "(`--surfaces` 로 목록. 없으면 [] 와 surfaces_none_reason)"]
+    items = design.get("surfaces")
+    if not isinstance(items, list):
+        return [], ["design.surfaces 가 배열이 아니다"]
+    problems: list[str] = []
+    if not items:
+        if not str(design.get("surfaces_none_reason") or "").strip():
+            problems.append("surfaces 가 비었는데 surfaces_none_reason 이 없다")
+        return [], problems
+    cells: list[dict] = []
+    seen: set[str] = set()
+    for i, it in enumerate(items):
+        if not isinstance(it, dict):
+            problems.append(f"surfaces[{i}] 가 객체가 아니다")
+            continue
+        sid, name = str(it.get("id") or "").strip(), str(it.get("surface") or "").strip()
+        if not SURFACE_ID_RE.match(sid):
+            problems.append(f"surfaces[{i}].id 가 비었거나 형식이 아니다(영소문자·숫자·-_) — {sid!r}")
+            continue
+        if sid in seen:
+            problems.append(f"surfaces 에 id {sid!r} 가 두 번 있다")
+        seen.add(sid)
+        if name not in catalog:
+            problems.append(f"{sid}: 카탈로그에 없는 노출면 {name!r} — `--surfaces` 로 목록을 본다. "
+                            "맞는 것이 없으면 회고에서 카탈로그에 더하자고 제안한다")
+            continue
+        if not str(it.get("where") or "").strip():
+            problems.append(f"{sid}: where 에 이 노출면이 어디인지(경로·클래스) 적는다")
+        for cid, desc in catalog[name][1]:
+            cells.append({"cell": f"fm:{sid}:{name}.{cid}", "field": sid, "flow": "-", "kind": name, "desc": desc})
+    return cells, problems
+
+
 def cell_key(field: str, flow: str, kind: str, cell: str) -> str:
     return f"{field}@{flow}:{kind}.{cell}"
 
@@ -296,6 +369,9 @@ def evaluate(task_id: str) -> tuple[dict, int]:
     if not isinstance(plan, dict):
         return {"error": f"PLAN 을 읽을 수 없다 — {err}"}, 2
     cells, plan_problems = required_cells(plan)
+    fm_cells, fm_problems = surface_cells(plan, load_catalog())
+    cells += fm_cells
+    plan_problems += fm_problems
     sc_path = artifact_path(task_id, "2a")
     scenario = None
     if sc_path and sc_path.is_file():
@@ -333,6 +409,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--task-id")
     parser.add_argument("--kinds", action="store_true", help="고를 수 있는 종류와 칸을 보여준다")
+    parser.add_argument("--surfaces", action="store_true", help="실패 유형 카탈로그의 노출면과 칸을 보여준다")
     parser.add_argument("--skeleton", action="store_true",
                         help="SCENARIO json 의 coverage_matrix 초안(모든 칸 state 빈 값)을 출력한다")
     parser.add_argument("--check-policy", action="store_true",
@@ -344,6 +421,16 @@ def main() -> int:
         drift = policy_drift()
         print("\n".join(drift) if drift else f"일치 — kind {len(KINDS)}")
         return 1 if drift else 0
+    if args.surfaces:
+        catalog = load_catalog()
+        if catalog is None:
+            print(f"{CATALOG_REL} 가 없다", file=sys.stderr)
+            return 2
+        for name, (title, cells) in catalog.items():
+            print(f"{name:<22} {title}")
+            for cid, desc in cells:
+                print(f"    .{cid:<22} {desc}")
+        return 0
     if args.kinds:
         for kind, (title, cells) in KINDS.items():
             print(f"{kind:<18} {title}")

@@ -100,6 +100,11 @@ class ProtectGatesTest(ProjectTestCase):
         self.project.write("docs/architecture/conventions.md", "x\n")
         self.assertAsks("docs/architecture/conventions.md", "코딩 규칙", "Phase 3")
 
+    def test_failure_mode_catalog_edit_asks_during_phase_3(self):
+        self.task("TASK-001", phase="3")
+        self.project.write("docs/architecture/failure-modes.md", "x\n")
+        self.assertAsks("docs/architecture/failure-modes.md", "실패 유형 카탈로그", "RETRY_FIX")
+
     def test_conventions_edit_outside_guarded_phase_is_silent(self):
         self.task("TASK-001", phase="1")
         self.project.write("docs/architecture/conventions.md", "x\n")
@@ -127,6 +132,19 @@ class ProtectGatesTest(ProjectTestCase):
         self.task("TASK-001", phase="3")
         self.red_tests("TASK-001", ["backend/src/test/java/"])
         self.assertAsks(APPROVED_TEST)
+
+    def test_approved_addendum_test_asks_but_pending_one_is_free(self):
+        # RETRY_FIX 의 추가 테스트는 Phase 3 이 새 파일로 쓴다 — HITL#3 에서 승인되면 그때부터 지킨다
+        self.task("TASK-001", phase="3")
+        add = "backend/src/test/java/ErrorFormatAddendumTest.java"
+        data = {"test_files": [APPROVED_TEST], "human_review": {"approved": True},
+                "addenda": [{"round": 1, "test_files": [add], "approved": False}]}
+        self.project.write_json("workflow_design/05_scenario/TEST_TASK-001.json", data)
+        self.project.write(add, "x\n")
+        self.assertSilent(add)
+        data["addenda"][0]["approved"] = True
+        self.project.write_json("workflow_design/05_scenario/TEST_TASK-001.json", data)
+        self.assertAsks(add)
 
     # --- 언제 묻지 않나 (경고 피로를 막는다) ---
 

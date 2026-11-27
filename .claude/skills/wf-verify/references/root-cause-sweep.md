@@ -56,13 +56,44 @@ Phase 4 가 FAIL 을 내면 Phase 3(또는 2a)으로 돌아가고, 고친 뒤 �
 |---|---|
 | `origin` | `found` 리뷰어가 보고한 결함 · `predicted` 같은 뿌리라 있을 법해서 첫 라운드에 미리 적음 · `later` 이후 라운드에서 뒤늦게 나옴 |
 | `probe` | `reproduced` 재현함 · `not_reproduced` 시도했으나 재현 안 됨 · `not_probed` 못 함 (`reason` 필수) |
-| `resolved` | 고쳤으면 `true` + `evidence`(그것을 막는 테스트). FAIL 이 아닌 판정에서 `reproduced` 변종은 반드시 `true` |
+| `resolved` | 고쳤으면 `true` + `evidence`(그것을 막는 테스트). FAIL 이 아닌 판정에서 `reproduced` 변종은 반드시 `true` — 아래 「범위」로 넘긴 것만 예외 |
+| `scope` | `diff` 이 변경이 만들었거나 완료 조건을 깬다(적지 않으면 이것) · `pre_existing` 기준 브랜치에서도 재현된다 · `hardening` 어느 완료 조건에도 없는 불변식 강화 |
+| `scope_evidence` | `diff` 가 아니면 필수 — `pre_existing` 은 기준 브랜치에서 재현한 방법, `hardening` 은 어느 완료 조건에도 없는 이유 |
+| `deferred_to` · `deferred_reason` | `diff` 가 아닌 재현 변종을 넘길 후속 태스크(tasks.json 에 실제로 있어야 한다)와 이 태스크에서 고치지 않는 이유 |
 
 변종이 정말 없으면 `variants: []` 와 함께 `no_variants_reason` 에 **무엇을 검토했고 왜 없는지**
 쓴다 (예: "이 catch 가 있는 진입점이 이 하나뿐임을 Grep 으로 확인").
 
 **라운드를 넘길 때는 이전 항목을 그대로 옮겨 적는다.** 해소했어도 지우지 않고 `resolved` 로
 남긴다. 문구를 고쳐 쓰면 `check_root_causes.py` 가 지운 것으로 읽는다.
+
+## 범위 — 이 변경이 만든 것만 FAIL 이다
+
+리뷰어는 넓은 불변식(「모든 오류 응답이 우리 형식이다」)을 기준으로 찌를 수 있다. 맞는 말이지만 공격면이 넓은 불변식은
+찌를 때마다 새 변종이 나와 **수렴하지 않는다.** ssirleague TASK-004(이미지 빌드·SPA 폴백)는 그렇게 Phase 4 를 4라운드 돌았다 —
+405 → 415·400 → Range 416·컨테이너 수준 400 → 커밋된 응답. 그중 상당수는 이 변경 전부터 있던 것이었고, 2라운드에 사람이
+「후속 태스크로 분리」를 골랐는데 게이트가 막았다.
+
+변종마다 `scope` 를 적는다.
+
+| scope | 판정 | 무엇으로 정하나 |
+|---|---|---|
+| `diff` | FAIL — 이 태스크에서 고친다 | 이 diff 가 연 경로·바꾼 코드에서 나거나, 완료 조건·시나리오를 깬다 |
+| `pre_existing` | 넘길 수 있다 | **기준 브랜치에서 같은 입력으로 재현된다** — 프로브를 기준 브랜치에서도 돌려 `scope_evidence` 에 적는다 |
+| `hardening` | 넘길 수 있다 | 완료 조건·시나리오·conventions·ADR 어디에도 그 약속이 없다 |
+
+**이 diff 가 새로 연 경로에서 나는 것은 원래 있던 처리기 탓이어도 `diff` 다** — 이 변경 전에는 사용자가 닿을 수 없었다.
+TASK-004 의 정적 파일 Range 416 이 그렇다. 판단이 갈리면 `diff` 로 둔다.
+
+`diff` 가 아닌 재현 변종이 남았을 때:
+
+1. 사람에게 묻는다(HITL#3) — 지금 고친다 / 후속 태스크로 넘긴다
+2. 넘기면 후속 태스크를 **먼저 만든다**(`/wf-task-new`). 적어만 둔 이관은 아무도 하지 않는다
+3. 변종에 `deferred_to`·`deferred_reason`·`scope_evidence`, 판정은 **WARN**(사람이 넘김을 본다)
+
+`check_root_causes.py` 는 `diff` 넘김 · 없는 태스크로 넘김 · 근거 없는 넘김 · 넘김이 있는데 PASS 를 막는다.
+**범위 판단이 맞는지는 기계가 모른다** — 그래서 넘긴 수를 따로 세어 HITL#3 에 보인다. 넘긴 변종은 `/wf-retro` 가
+실패 유형 카탈로그(`docs/architecture/failure-modes.md`) 후보로 모은다 — 다음 태스크의 2a 가 처음부터 덮게 하는 길이다.
 
 ## 변종을 찾는 질문
 
@@ -74,6 +105,8 @@ Phase 4 가 FAIL 을 내면 Phase 3(또는 2a)으로 돌아가고, 고친 뒤 �
 - **같은 예외를 일으키는 다른 원인은?** 넓게 잡은 catch 는 원인이 여럿이다
 - **같은 가정이 깨지는 다른 환경은?** 테스트 DB 와 운영 DB 의 차이(H2 ↔ PostgreSQL), 설정값 조합
 - **이 수정이 새로 만들 부작용은?** (`code-review-rounds.md` §2)
+- **실패 유형 카탈로그에 이 노출면의 칸이 있는가?** `docs/architecture/failure-modes.md` 에서 이 태스크가 연 노출면의 행을 읽고
+  2a 가 `n/a` 로 닫은 칸도 다시 본다 — 그 사유가 틀렸으면 그것이 변종이다
 
 ## 프로브 규칙
 

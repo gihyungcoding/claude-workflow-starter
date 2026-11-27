@@ -35,6 +35,7 @@ Frontend 태스크의 `sub_categories` 에 쓸 수 있는 값: <!-- 예: admin, 
 | `docs/architecture/architecture.md` | 시스템이 어떻게 구성되는가 | **Phase 1** |
 | `docs/architecture/constraints.yaml` | 무엇을 어기면 안 되는가 (아키텍처 + 디자인) | **Phase 4** (`check_architecture.py`) |
 | `docs/architecture/conventions.md` | 코드를 어떻게 쓰는가 — 배치·이름·에러·검증·테스트 | **Phase 1·2b·3** |
+| `docs/architecture/failure-modes.md` | 여는 노출면마다 무엇이 잘못되는가 (Phase 4 의 뒤늦은 변종이 쌓인다) | **Phase 1·2a·4** |
 | `docs/product/design.md` | 화면이 어떻게 보이는가·왜 그런가 | **Phase 1** (Frontend), **Phase 4** |
 | `docs/product/design-tokens.css` | 색·타이포·간격의 정본 | 화면 코드 전부 |
 | `docs/decisions/ADR-*.md` | 왜 이 기술·패턴을 골랐는가 | **Phase 1** |

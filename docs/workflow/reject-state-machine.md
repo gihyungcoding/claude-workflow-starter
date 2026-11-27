@@ -29,7 +29,7 @@ Phase 3 (Green)
   ▼
 Phase 4 (Verify)
   │
-  ├─ HITL #3 ─ REJECT ─► Phase 3 (구현 결함) 또는 Phase 2a (시나리오 결함)
+  ├─ HITL #3 ─ REJECT ─► Phase 3 (구현 결함 · RETRY_FIX: 기대 결과가 이미 정해진 결함) 또는 Phase 2a (시나리오 결함)
   ▼
 Phase 5 (Reflect)
   │
@@ -47,6 +47,7 @@ DONE ── 나중에 /wf-retro (HITL #4, 비동기) ── REVISION_NEEDED 면 
 |---|---|---|
 | `RETRY_SCENARIO` | 시나리오가 불완전·부정확 | Phase 2a |
 | `RETRY_RED_CODE` | 시나리오는 맞는데 테스트 코드가 틀림 | Phase 2b 내부 루프 |
+| `RETRY_FIX` | 구현 결함. 시나리오에 없는 변종이어도 **기대 결과를 이미 있는 문서가 정한다** | Phase 3 — 추가 시나리오·테스트를 먼저 (→ §2.5) |
 | `ROLLBACK_PLAN` | 설계 자체가 문제 | Phase 1 |
 | `ROLLBACK_TASK` | 태스크 정의·요구사항이 불명확 | 워크플로우 밖 (사람이 태스크를 다시 씀) |
 | `BLOCKED` | 외부 의존성 때문에 진행 불가 | 정지 (HOLD) |
@@ -62,6 +63,9 @@ COVERAGE_INSUFFICIENT    커버리지가 부족하다             → RETRY_SCEN
 SCENARIO_WRONG_TYPE      happy/error 분류가 틀렸다       → RETRY_SCENARIO
 RULE_CONFLICT            프로젝트 규칙과 충돌한다         → RETRY_SCENARIO
 
+IMPL_DEFECT_KNOWN        기대 결과가 문서로 정해진 구현 결함 → RETRY_FIX
+                         (완료 조건·기존 시나리오는 그대로, 변종의 기대 결과마다 근거 문서가 있다)
+
 CODE_SCENARIO_MISMATCH   코드가 시나리오와 다르다         → RETRY_RED_CODE
 WRONG_ASSERTION          단언이 틀렸다                  → RETRY_RED_CODE
 
@@ -75,6 +79,32 @@ DEPENDENCY_NOT_READY     선행 태스크·외부 API 미준비      → BLOCKED
 ```
 
 ---
+
+## 2.5. RETRY_FIX — 2a 를 다시 돌지 않는 결함
+
+Phase 4 FAIL 이 2a 로 돌아가면 독립검증 · HITL#1·2 · Red · Green · Phase 4 · HITL#3 를 다 다시 돈다 — 라운드마다 사람 승인 2번.
+ssirleague TASK-004 는 4라운드에 11시간이 걸렸고 대부분이 승인 대기였다. 그런데 되돌아간 이유의 대부분은 「415 여야 할 것이
+500 이다」처럼 **무엇이 맞는지는 이미 정해져 있고 시나리오에 적지 않았을 뿐**인 결함이었다. 시나리오를 다시 설계할 일이 아니다.
+
+**고르는 기준 — 기대 결과를 누가 정하나**
+
+| 변종의 기대 결과 | Type |
+|---|---|
+| 이미 있는 문서가 정한다 — 완료 조건 · 기존 시나리오의 규칙 · `conventions.md` · ADR · 표준(RFC 의 상태 코드 등) | `RETRY_FIX` |
+| 사람이 새로 정해야 한다(정책·문구·우선순위) · 완료 조건을 바꾼다 · 기존 시나리오가 틀렸다 | `RETRY_SCENARIO` |
+
+`RETRY_FIX` 에서 Phase 3 이 하는 일 (→ `wf-develop` 「Phase 4 FAIL 로 돌아왔다면」):
+
+1. 변종마다 **추가 시나리오**를 SCENARIO md 끝 `## 추가 시나리오` 에 쓴다. 각 시나리오에 `addendum: <회차>` 와
+   `basis: <근거 문서와 그 문장>`. 기존 시나리오는 고치지 않는다
+2. 추가 시나리오의 테스트를 **새 파일에** 쓴다(승인된 테스트 파일은 훅이 지킨다). 실행해 실패를 확인하고 **수정보다 먼저 커밋**한다
+3. `TEST_<ID>.json` 의 `addenda` 에 `{round, scenarios, test_files, red_commit, red_evidence, approved: false}`
+4. 고친다. Phase 4 로 간다 — 독립검증·HITL#1·2 를 거치지 않는다
+
+**사람은 HITL#3 에서 본다.** 추가 시나리오와 근거, 실패 출력을 승인 요약에 그대로 보이고, 승인하면 `addenda[].approved: true`.
+근거가 틀렸으면 사람이 `RETRY_SCENARIO` 를 고른다. `check_addenda.py` 가 형식(근거·새 파일·수정 전 커밋·승인)을 본다.
+
+Phase 3 자체 리뷰가 찾은 결함도 같다 — 기대 결과에 근거가 있으면 2a 롤백을 제안하지 않고 추가 시나리오로 처리한다.
 
 ### 계획을 고쳤으면 — 어디부터 다시 하나 (`plan_impact.py`)
 
@@ -103,6 +133,7 @@ python3 scripts/plan_impact.py --req REQ-001 --from <locked_commit>
 {
   "RETRY_SCENARIO":  { "max_attempts": 3, "on_exceed": "ROLLBACK_PLAN" },
   "RETRY_RED_CODE":  { "max_attempts": 2, "on_exceed": "RETRY_SCENARIO" },
+  "RETRY_FIX":       { "max_attempts": 2, "on_exceed": "RETRY_SCENARIO" },   // 두 번 고쳐도 새 변종이면 시나리오를 다시 본다
   "ROLLBACK_PLAN":   { "max_attempts": 2, "on_exceed": "ESCALATE" },
   "ESCALATE":        { "action": "사용자에게 사람의 개입이 필요하다고 알리고 정지" }
 }

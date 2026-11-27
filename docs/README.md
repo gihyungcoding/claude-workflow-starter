@@ -74,6 +74,7 @@ Phase 5 회고가 Foundation을 되먹이는 것이 이 구조의 핵심이다 �
 | `architecture/architecture.md` | 시스템이 어떻게 구성되는가 | 사람, **Phase 1** | 구조가 바뀔 때 |
 | `architecture/constraints.yaml` | 무엇을 어기면 안 되는가 (기계 검사용) | **Phase 4 스크립트** | 제약이 생길 때 |
 | `architecture/conventions.md` | 코드를 어떻게 쓰는가 — 배치·이름·에러·검증·테스트 | **Phase 1·2b·3** | 회고가 규칙 변경을 제안할 때 |
+| `architecture/failure-modes.md` | 여는 노출면마다 무엇이 잘못되는가 — PLAN `surfaces` 가 2a 칸이 된다 | **Phase 1·2a·4** | 회고가 later·넘긴 변종을 제안할 때 (`/wf-retro`) |
 | `decisions/ADR-*.md` | 왜 이 기술·패턴을 골랐는가 | 사람, **Phase 1** | 결정할 때마다 (추가만) |
 | `workflow/*.md` | 워크플로우 자체의 규격 | 각 Phase 스킬 | 워크플로우를 고칠 때 |
 | `workflow/first-run-notes-template.md` | 첫 완주 때 마찰을 기록하는 양식 | 처음 쓰는 사람 | — |
