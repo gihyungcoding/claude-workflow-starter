@@ -279,8 +279,12 @@ def _deferral_problems(v: dict, vw: str, scope: str, task_id: object, tasks: set
         problems.append(f"{vw}: deferred_to {target} 가 tasks.json 에 없다 — 후속 태스크를 먼저 만든다(/wf-task-new). "
                         "적어만 둔 이관은 아무도 하지 않는다")
         ok = False
+    # 예전 형식(pre_existing: true, scope 없음)은 deferred_reason 만 요구했다 — 진행 중인 기록을 막지 않는다
+    legacy = "scope" not in v and v.get("pre_existing") is True
     for field, what in (("deferred_reason", "왜 이 태스크에서 고치지 않는지"),
                         ("scope_evidence", "범위 판단의 근거")):
+        if field == "scope_evidence" and legacy and _text(v.get("deferred_reason")):
+            continue
         if not _text(v.get(field)):
             problems.append(f"{vw}: 넘기려면 {field} 에 {what}를 적는다")
             ok = False

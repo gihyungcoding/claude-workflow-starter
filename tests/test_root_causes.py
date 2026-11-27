@@ -267,6 +267,7 @@ class ScopeTriageTest(ProjectTestCase):
         v = self.deferred()
         del v["scope"]
         v["pre_existing"] = True
+        del v["scope_evidence"]   # 예전 형식은 deferred_reason 만 적었다 (ssirleague TASK-004)
         self.verify("WARN", [root_cause(variants=[self.resolved_a(), v])])
         self.assertOk()
 
