@@ -140,6 +140,9 @@ AskUserQuestion({
 
 4. 재시도 횟수가 상한을 넘으면 상위 Phase로 롤백한다 (→ `reject-state-machine.md` §3)
 
+HITL#3 의 롤백 선택지는 셋이다 — **구현으로(`RETRY_FIX`, 기대 결과에 근거가 있을 때 추천)** · 시나리오로(`RETRY_SCENARIO`) ·
+범위 밖 변종을 후속 태스크로 넘기기(판정 WARN, → `root-cause-sweep.md` 「범위」). 어느 것이 맞는지 추천과 이유를 붙여 묻는다.
+
 ---
 
 ## 6. 하지 말 것

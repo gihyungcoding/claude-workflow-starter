@@ -65,8 +65,15 @@ cat workflow_design/04_plan/PLAN_TASK-001.json         # 어디를 고치는가,
 - `probe: reproduced` 변종마다 **테스트를 먼저 실패시킨 뒤** 고친다 (Red → Green)
 - `probe: not_probed` 변종도 **테스트를 쓴다** — 테스트가 프로브다. 실패하면 고치고, 통과하면
   그 테스트가 다음 VERIFY 의 `not_reproduced` 근거(`evidence`)가 된다
-- 변종이 시나리오에 없는 동작이라 테스트를 쓸 수 없다면 여기서 만들지 않는다. Phase 2a 로
-  돌아가되 **변종 전부를 한 번에** 가져간다 (시나리오에 없는 기능 추가는 금지다)
+- 변종이 시나리오에 없는 동작이면 **기대 결과를 누가 정하는지** 본다 (→ `docs/workflow/reject-state-machine.md` §2.5)
+  - 이미 있는 문서가 정한다(완료 조건 · 기존 시나리오의 규칙 · `conventions.md` · ADR · RFC 같은 표준) → **`RETRY_FIX`**.
+    여기서 추가 시나리오를 쓴다 — SCENARIO md 끝 `## 추가 시나리오` 에 `addendum: <회차>`·`basis: <근거 문서와 그 문장>` 을
+    단 시나리오, JSON 은 MD 에서 다시 만든다. 테스트는 **새 파일에** 쓰고(승인된 파일은 고치지 않는다) 실패를 확인해
+    **수정보다 먼저 커밋**한다. `TEST_<ID>.json` 의 `addenda` 에 `{round, scenarios, test_files, red_commit, red_evidence,
+    approved: false}` 를 적는다. 승인은 HITL#3 이 한다 — `approved` 를 스스로 `true` 로 쓰지 않는다
+  - 사람이 새로 정해야 한다(정책·문구·우선순위) · 완료 조건을 바꾼다 · 기존 시나리오가 틀렸다 → 여기서 만들지 않는다.
+    Phase 2a 로 돌아가되 **변종 전부를 한 번에** 가져간다
+- `scope` 가 `diff` 가 아닌 변종(원래 있던 것·불변식 강화)을 사람이 후속 태스크로 넘겼으면 여기서 고치지 않는다
 - 고친 내용은 `DEV_<ID>.json` 의 `rollback_fixes` 에
   `{root_cause, variants, tests, fix_locus: "common" | "per_site", sites}` 로 남긴다
 
@@ -207,7 +214,8 @@ TASK-001 의 변경 코드를 리뷰해주세요. Phase 3 자체 리뷰입니다
 | 소견 | 처리 |
 |---|---|
 | `[correctness]`, 변종이 시나리오 안의 동작 | Step 1 「Phase 4 FAIL 로 돌아왔다면」 규칙대로 고친다 — 뿌리를 공통 지점에서 고치고, 변종마다 **테스트를 먼저 실패시킨 뒤** 고친다. 고친 것은 `fix` 커밋으로 남긴다 |
-| `[correctness]`, 변종이 시나리오에 없는 동작 | 여기서 만들지 않는다. **Phase 4 를 거치지 말고 지금** 사용자에게 2a 롤백을 제안한다. 변종은 전부 한 번에 가져간다 |
+| `[correctness]`, 시나리오에 없고 기대 결과에 근거 문서가 있다 | 위와 같이 고치되 **추가 시나리오**로 — Step 1 의 `RETRY_FIX` 절차(근거·새 테스트 파일·수정 전 커밋·`addenda`). HITL#3 이 함께 승인한다 |
+| `[correctness]`, 시나리오에 없고 기대 결과를 사람이 정해야 한다 | 여기서 만들지 않는다. **Phase 4 를 거치지 말고 지금** 사용자에게 2a 롤백을 제안한다. 변종은 전부 한 번에 가져간다 |
 | `[security]` | `[correctness]` 와 같이 처리한다 |
 | `[design]` `[reuse]` `[test]` | 범위 안에서 싸게 고칠 수 있으면 고친다. 아니면 `pre_review.deferred` 에 적어 Phase 4 로 넘긴다 |
 
@@ -224,8 +232,8 @@ TASK-001 의 변경 코드를 리뷰해주세요. Phase 3 자체 리뷰입니다
 않는다. `pre_review.unresolved` 에 적고 사용자에게 알린 뒤 Phase 4 로 넘긴다. 판정은
 Phase 4 가 한다.
 
-**단, 남은 `[correctness]` 가 시나리오에 없는 변종이면 Phase 4 로 넘기지 않는다.** 3 의 표대로 지금
-사용자에게 2a 롤백을 제안한다. 상한은 같은 Phase 안의 수정 루프를 끊는 장치다 — 원인과 수정이 이미
+**단, 남은 `[correctness]` 가 시나리오에 없고 기대 결과를 사람이 정해야 하는 변종이면 Phase 4 로 넘기지 않는다.**
+3 의 표대로 지금 사용자에게 2a 롤백을 제안한다. 근거 문서가 있는 변종은 추가 시나리오로 처리한 뒤 넘긴다. 상한은 같은 Phase 안의 수정 루프를 끊는 장치다 — 원인과 수정이 이미
 알려진 결함을 Phase 4 로 보내면 Phase 4 FAIL 이 같은 2a 롤백을 한 바퀴 더 크게 돈다
 (→ 실사용: 2R unresolved 2건이 그대로 Phase 4 1회차 FAIL 의 원인이었다).
 

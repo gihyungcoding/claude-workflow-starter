@@ -16,6 +16,7 @@
                   ruff, mypy, checkstyle, .editorconfig, dependency-cruiser, importlinter,
                   .pre-commit-config.yaml)
     approved-test 통합 HITL(#1·2)에서 승인된 Red 테스트 (TEST_<ID>.json 의 test_files)
+                  + HITL#3 에서 승인된 추가 시나리오 테스트 (addenda[].approved 인 것의 test_files)
 
 언제 묻나 — Phase 3·4 의 ACTIVE 태스크가 있을 때만
 ------------------------------------------------
@@ -123,7 +124,11 @@ def approved_test_files(task_id: str) -> set[str]:
         return set()
     if (data.get("human_review") or {}).get("approved") is not True:
         return set()
-    files = data.get("test_files") or []
+    files = list(data.get("test_files") or [])
+    # HITL#3 에서 승인된 추가 시나리오(RETRY_FIX)의 테스트도 승인된 테스트다
+    for add in data.get("addenda") or []:
+        if isinstance(add, dict) and add.get("approved") is True:
+            files += list(add.get("test_files") or [])
     return {str(f).replace("\\", "/") for f in files if isinstance(f, str)}
 
 

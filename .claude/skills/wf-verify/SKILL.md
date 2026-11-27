@@ -43,7 +43,10 @@ description: >-
 - **`evidence.lint.exit_code` 가 실제 숫자** — 린트 도구가 없으면 `null` + `skipped_reason`
 - `human_review.decision ∈ {APPROVE, EXCEPTION_APPROVE}`
 - `human_review.verified_commit` 기록됨
-- **`check_root_causes.py` exit 0** — 재현된 변종이 남은 채로는 PASS·WARN 불가
+- **`check_root_causes.py` exit 0** — 재현된 변종이 남은 채로는 PASS·WARN 불가. 이 변경이 만들지 않은 변종(`scope` 가
+  `diff` 아님)은 사람이 고른 후속 태스크로 넘겼을 때만 WARN (→ `references/root-cause-sweep.md` 「범위」)
+- **`check_addenda.py` exit 0** — Phase 3 이 더한 추가 시나리오(`RETRY_FIX`)에 근거·새 테스트 파일·수정 전 커밋이 있고,
+  승인했으면 `addenda[].approved: true`
 - `CP-4.2` 저장 및 커밋
 
 ---
@@ -320,7 +323,7 @@ Phase 3 롤백 후라면 **수정 커밋도 최소 1회 다시 리뷰한다** (�
 }
 ```
 
-저장한 뒤 `python3 scripts/check_root_causes.py --task-id <ID>` 를 실행한다. 위반이 있으면
+저장한 뒤 `python3 scripts/check_root_causes.py --task-id <ID>` 와 `python3 scripts/check_addenda.py --task-id <ID>` 를 실행한다. 위반이 있으면
 고친 뒤 커밋한다. **FAIL 이면 롤백 요약에 뿌리·변종 수를 적는다** (예: 뿌리 1 · 변종 3, 재현 2).
 
 `CP-4.2_verification.md` 저장.
@@ -349,12 +352,28 @@ Phase 4 — TASK-001    status: WARN
 판정에는 영향이 없다. 다음 태스크가 이 코드를 따라 쓰게 되므로 사람이 지금 본다.
 conventions.md 반영 여부는 Phase 5 의 `rule_proposals` 에서 정한다. 0건이면 줄을 생략한다.
 
+**추가 시나리오와 넘긴 변종은 승인 요약에 반드시 보인다.** 사람이 처음 보는 시나리오이고, 넘김은 범위 판단이라서다.
+
+```
+  추가 시나리오 2건 (RETRY_FIX 1회차 — 독립검증·HITL#1·2 를 거치지 않았다)
+    SC-21 text/plain 본문은 415 ErrorResponse   근거: conventions.md C-ERROR · RFC 9110 §15.5.16
+    SC-22 필수 파라미터 누락은 400 ErrorResponse  근거: conventions.md C-ERROR
+    실패 확인: a1b2c3d (수정 전 커밋) — 2 failed
+  후속 태스크로 넘김 3건 → TASK-006 (원래 있던 것 2 · 불변식 강화 1)
+    RC-3 Tomcat 수준 400 이 HTML   pre_existing — main 에서 같은 요청으로 재현
+```
+
 `AskUserQuestion`:
 
-- **승인** → Phase 5
+- **승인** → Phase 5. 추가 시나리오가 있으면 `addenda[].approved: true`
 - **예외 승인** (WARN일 때만) → 예외 항목을 기록하고 Phase 5
-- **구현으로 롤백** → Phase 3
-- **시나리오로 롤백** → Phase 2a (시나리오 자체가 부족했던 경우)
+- **구현으로 롤백** → Phase 3. 변종의 기대 결과를 이미 있는 문서가 정하면 `RETRY_FIX` — 2a·HITL#1·2 를 다시 돌지 않는다
+- **시나리오로 롤백** → Phase 2a (기대 결과를 사람이 새로 정해야 하거나 기존 시나리오가 틀린 경우)
+- **범위 밖 변종을 후속 태스크로** → 후속 태스크를 만들고(`/wf-task-new`) 변종에 `deferred_to`, 판정 WARN 으로 다시 저장해
+  이 질문을 다시 한다. **이 변경이 만든 변종(`scope: diff`)은 넘길 수 없다**
+
+FAIL 의 추천은 이렇게 정한다 — 재현된 `diff` 변종의 기대 결과에 모두 근거 문서가 있으면 「구현으로(`RETRY_FIX`)」,
+하나라도 사람이 정해야 하면 「시나리오로」. `diff` 아닌 변종만 남았으면 FAIL 이 아니다 — 넘길지 고칠지를 묻는다.
 
 > `status: FAIL` 이면 승인 선택지를 제시하지 않는다. FAIL은 롤백만 가능하다.
 
